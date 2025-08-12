@@ -1,1 +1,1 @@
-# Standplaetze_feur_Diagora
+Diese Projekt dient dazu um Standplätze zu buchen
