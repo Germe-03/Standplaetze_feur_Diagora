@@ -44,11 +44,11 @@ class Address:
         self.__city = city
 
     @property
-    def zipe(self):
+    def zip(self):
         return self.__zip
 
     @zip.setter
-    def zip_code(self, zip_code):
+    def zip(self, zip_code):
         if not zip_code:
             raise ValueError("zip code is required")
         if not isinstance(zip_code, str):
@@ -76,4 +76,16 @@ class Address:
             raise ValueError("State is required")
         if not isinstance(state, str):
             raise TypeError("State must be a string")
+
+    @property
+    def user_id(self):
+        return self.__user_id
+
+    @user_id.setter
+    def user_id(self, user_id):
+        if not user_id:
+            raise ValueError("User ID is required")
+        if not isinstance(user_id, str):
+            raise TypeError("User ID must be a Integer")
+
 

@@ -26,7 +26,7 @@ class AddressDataAccess(BaseDataAccess):
         VALUES (?, ?, ?, ?, ?, ?)
         """
         new_id, _ = self.execute(sql, (street, number, zip, city, state, user_id))
-        return Address(new_id, street, street, number, zip, city, state, user_id)
+        return Address(new_id, street, number, zip, city, state, user_id)
 
 
     def update_address(self, address: Address) -> None:
