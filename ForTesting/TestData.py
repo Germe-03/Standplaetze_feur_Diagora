@@ -88,7 +88,7 @@ INSERT INTO Address (AddressID, Street, Number, Zip, City, State, UserID) VALUES
 
 # 10. Bookings einfügen (6x)
 cursor.execute("""
-INSERT INTO Bookings (BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate, Price, Confirmed, LocationID, Canceled, CampaignID, UserID) VALUES 
+INSERT INTO Bookings (BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate, Price, Confirmed, LocationID, Cancelled, CampaignID, UserID) VALUES 
 (1, '2026-01-01', '2026-01-04', '2026-01-01', 40.00, 1, 1, 0, 1, 1),
 (2, '2026-01-01', '2026-01-20', '2026-01-01', 40.00, 1, 2, 0, 1, 2),
 (3, '2026-01-03', '2026-01-07', '2026-01-03', 100.00, 1, 3, 0, 1, 1),
