@@ -92,3 +92,15 @@ class BookingDataAccess(BaseDataAccess):
         """
         rows = self.fetchall(sql, (user_id,))
         return [Booking(*row) for row in rows]
+
+    def get_bookings_by_city(self, city: str) -> list[Booking]:
+        sql = """
+        select b.BookingID, b.DateOfBooking, b.DateOfEvent, b.DateOfLastUpdate,
+            b.Price, b.Confirmed, b.LocationID, b.CampaignID, b.UserID
+        from Bookings b
+        join Locations l on l.LocationID = b.LocationID
+        join Cities c on c.CityID = l.CityID
+        where c.Name = ?
+        """
+        rows = self.fetchall(sql, (city,))
+        return [Booking(*row) for row in rows]
