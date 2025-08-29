@@ -20,7 +20,7 @@ class AddressDataAccess(BaseDataAccess):
         return None
 
 
-    def insert_address(self, street: str, number: str, zip: str, city: str, state_id: int, user_id: int) -> int:
+    def insert_address(self, street: str, number: str, zip: str, city: str, state_id: int, user_id: int) -> Address:
         sql = """
         INSERT INTO address (Street, Number, Zip, City, StateID, UserID)
         VALUES (?, ?, ?, ?, ?, ?)
