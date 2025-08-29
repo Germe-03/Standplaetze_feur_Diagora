@@ -1,19 +1,16 @@
-from pandas.io.stata import stata_epoch
-
-
 class Address:
-    def __init__(self, address_id:int, street:str, number:str, zip:str, city:str, state:str, user_id: int):
+    def __init__(self, address_id:int, street:str, number:str, zip:str, city:str, state_id:int, user_id: int):
         self.__address_id = address_id
         self.__street = street
         self.__number = number
         self.__zip = zip
         self.__city = city
-        self.__state = state
+        self.__state_id = state_id
         self.__user_id = user_id
 
     def __repr__(self):
-        return (f"Address(id={self.__address_id!r}, street={self.__street!r}, city={self.__number!r}, zip={self.__zip!r}"
-                f"city={self.__city!r}), state={self.__state!r}, user={self.__user_id!r}")
+        return (f"Address(id={self.__address_id!r}, street={self.__street!r}, number={self.__number!r}, zip={self.__zip!r}"
+                f", city={self.__city!r}, state_id={self.__state_id!r}, user={self.__user_id!r}")
 
     @property
     def address_id(self):
@@ -53,7 +50,7 @@ class Address:
             raise ValueError("zip code is required")
         if not isinstance(zip_code, str):
             raise TypeError("zip code must be a string")
-        self.__zip = zip
+        self.__zip = zip_code
 
     @property
     def number(self):
@@ -67,15 +64,16 @@ class Address:
             raise TypeError("number must be a string")
 
     @property
-    def state(self):
-        return self.__state
+    def state_id(self):
+        return self.__state_id
 
-    @state.setter
-    def state(self, state):
-        if not state:
-            raise ValueError("State is required")
-        if not isinstance(state, str):
-            raise TypeError("State must be a string")
+    @state_id.setter
+    def state_id(self, state_id):
+        if not state_id:
+            raise ValueError("State ID is required")
+        if not isinstance(state_id, int):
+            raise TypeError("State ID must be an integer")
+        self.__state_id = state_id
 
     @property
     def user_id(self):
@@ -85,7 +83,8 @@ class Address:
     def user_id(self, user_id):
         if not user_id:
             raise ValueError("User ID is required")
-        if not isinstance(user_id, str):
-            raise TypeError("User ID must be a Integer")
+        if not isinstance(user_id, int):
+            raise TypeError("User ID must be an integer")
+        self.__user_id = user_id
 
 
