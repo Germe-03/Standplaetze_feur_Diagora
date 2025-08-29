@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 
 class CityLimit:
-    def __init__(self, city_limit_id, city_limit_yearly, city_limit_monthly, city_limit_campaign, city_limit_yearly_per_l, city_limit_monthly_per_l, city_limit_campaign_per_l, valid_from, city_id):
+    def __init__(self, city_limit_id, city_limit_yearly, city_limit_monthly, city_limit_campaign, city_limit_yearly_per_l, city_limit_monthly_per_l, city_limit_campaign_per_l, valid_from, unlimited, city_id):
         self.__city_limit_id = city_limit_id
         self.__city_limit_yearly = city_limit_yearly
         self.__city_limit_monthly = city_limit_monthly
@@ -12,6 +12,7 @@ class CityLimit:
         self.__city_limit_monthly_per_l = city_limit_monthly_per_l
         self.__city_limit_campaign_per_l = city_limit_campaign_per_l
         self.__valid_from = valid_from
+        self.__unlimited = unlimited
         self.__city_id = city_id
 
     def __repr__(self):
@@ -52,6 +53,10 @@ class CityLimit:
     @property
     def valid_from(self):
         return self.__valid_from
+
+    @property
+    def unlimited(self):
+        return self.__unlimited
 
     @property
     def city_id(self):
@@ -105,6 +110,13 @@ class CityLimit:
             raise ValueError("Date Valid From is required")
         if not isinstance(valid_from, date):
             raise TypeError("Date of event must be a date")
+
+    @unlimited.setter
+    def unlimited(self, unlimited):
+        if not isinstance(unlimited, bool):
+            raise TypeError("Unlimited must be a Bool")
+        if not unlimited:
+            raise ValueError("Unlimited is required")
 
     @city_id.setter
     def city_id(self, city_id):

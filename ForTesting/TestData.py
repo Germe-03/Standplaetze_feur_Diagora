@@ -45,12 +45,12 @@ INSERT INTO Cities (CityID, Name, State) VALUES
 
 # 4. Locations einfügen (5x - 2 für Berlin, 3 für München)
 cursor.execute("""
-INSERT INTO Locations (LocationID, Name, IsSBB, MaxDialog, good, Notes, CityID, UserID) VALUES 
-(1, 'Igelweid', 0, 4, 1, NULL, 1, 1),
-(2, 'Bahnhofplatz', 0, 5, 1, 'Überdachte Garage', 1, 2),
-(3, 'Pilatusstrasse', 0, 4, 1, NULL, 2, 1),
-(4, 'Postplatz', 0, 3, 1, NULL, 2, 1),
-(5, 'Torbogen', 0, 4, 0, NULL, 2, 1)
+INSERT INTO Locations (LocationID, Name, IsSBB, MaxDialog, Rating, Notes, Price, CityID, UserID) VALUES 
+(1, 'Igelweid', 0, 4, 4, NULL, 50,1, 1),
+(2, 'Bahnhofplatz', 0, 5, 1, 'Überdachte Garage', 50,1, 2),
+(3, 'Pilatusstrasse', 0, 4, 5, NULL, 100,2, 1),
+(4, 'Postplatz', 0, 3, 5, NULL, 100,2, 1),
+(5, 'Torbogen', 0, 4, 3, NULL, NULL,2, 1)
 """)
 
 # 5. LocationLimits einfügen (2x für Standplätze)
@@ -67,9 +67,9 @@ INSERT INTO Campaign (CampaignID, Name, Year, Budget, UserID) VALUES
 
 # 7. CityLimit einfügen (2x für Städte)
 cursor.execute("""
-INSERT INTO CityLimit (CityLimitID, CityLimitYearly, CityLimitMonthly, CityLimitCampaign, CityLimitYearlyPerL, CityLimitMonthlyPerL, CityLimitCampaignPerL, ValidFrom, CityID) VALUES 
-(1, 8, NULL, NULL, NULL, NULL, NULL, '2024-01-01', 1),
-(2, 12, 2, NULL, 3, NULL, NULL, '2024-01-01', 2)
+INSERT INTO CityLimit (CityLimitID, CityLimitYearly, CityLimitMonthly, CityLimitCampaign, CityLimitYearlyPerL, CityLimitMonthlyPerL, CityLimitCampaignPerL, ValidFrom, Unlimited, CityID) VALUES 
+(1, 8, NULL, NULL, NULL, NULL, NULL, '2024-01-01', 0, 1),
+(2, 12, 2, NULL, 3, NULL, NULL, '2024-01-01', 0, 2)
 """)
 
 # 8. ContactInformation einfügen (2x)

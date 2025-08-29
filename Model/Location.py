@@ -1,18 +1,19 @@
 class Location:
-    def __init__(self, location_id, name, is_sbb, max_dialog, good, note, city_id, user_id):
+    def __init__(self, location_id, name, is_sbb, max_dialog, rating, price, note, city_id, user_id):
         self.__location_id = location_id
         self.__name = name
         self.__is_sbb = is_sbb
         self.__max_dialog = max_dialog
-        self.__good = good
+        self.__rating = rating
         self.__note = note
+        self.__price = price
         self.__city_id = city_id
         self.__user_id = user_id
 
     def __repr__(self):
         return (
             f"Location(id={self.__location_id!r}, Name={self.__name!r}, is SBB={self.__is_sbb!r}"
-            f"max Dialog={self.__max_dialog!r}), good={self.__good!r}, nates={self.__note!r}, city_id={self.__city_id!r}"
+            f"max Dialog={self.__max_dialog!r}), rating={self.__rating!r}, nates={self.__note!r}, city_id={self.__city_id!r}"
             f"User ID={self.__user_id!r}")
 
     @property
@@ -28,11 +29,14 @@ class Location:
     def max_dialog(self):
         return self.__max_dialog
     @property
-    def good(self):
-        return self.__good
+    def rating(self):
+        return self.__rating
     @property
     def note(self):
         return self.__note
+    @property
+    def price(self):
+        return self.__price
     @property
     def city_id(self):
         return self.__city_id
@@ -62,12 +66,12 @@ class Location:
         if not isinstance(max_dialog, int):
             raise TypeError("Max Dialog must be a Int")
 
-    @good.setter
-    def good(self, good):
-        if not good:
-            raise ValueError("Good is required")
-        if not isinstance(good, bool):
-            raise TypeError("Good must be a Boolean")
+    @rating.setter
+    def rating(self, rating):
+        if not rating:
+            raise ValueError("Rating is required")
+        if not isinstance(rating, int):
+            raise TypeError("Rating must be a Integer")
 
     @note.setter
     def note(self, note):
@@ -75,6 +79,13 @@ class Location:
             raise ValueError("Note is required")
         if not isinstance(note, str):
             raise TypeError("Note must be a String")
+
+    @price.setter
+    def price(self, price):
+        if not price:
+            raise ValueError("Price is required")
+        if not isinstance(price, float):
+            raise TypeError("Price must be a Float")
 
     @city_id.setter
     def city_id(self, city_id):
