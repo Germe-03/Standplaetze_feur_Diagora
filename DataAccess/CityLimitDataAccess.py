@@ -12,7 +12,7 @@ class CityLimitDataAccess(BaseDataAccess):
         select CityLimitID, CityLimitYearly, CityLimitMonthly, CityLimitCampaign, 
                CityLimitYearlyPerL, CityLimitMonthlyPerL, CityLimitCampaignPerL, 
                ValidFrom, Unlimited, CityID
-        from CityLimits
+        from CityLimit
         where CityLimitID = ?   
         """
         row = self.fetchone(sql, (city_limit_id,))
@@ -25,7 +25,7 @@ class CityLimitDataAccess(BaseDataAccess):
         select cl.CityLimitID, cl.CityLimitYearly, cl.CityLimitMonthly, cl.CityLimitCampaign, 
                cl.CityLimitYearlyPerL, cl.CityLimitMonthlyPerL, cl.CityLimitCampaignPerL, 
                cl.ValidFrom, cl.Unlimited, cl.CityID
-        from CityLimits cl
+        from CityLimit cl
         join Cities c on c.CityID = cl.CityID
         where c.Name = ?
         """
@@ -37,7 +37,7 @@ class CityLimitDataAccess(BaseDataAccess):
         select CityLimitID, CityLimitYearly, CityLimitMonthly, CityLimitCampaign, 
                CityLimitYearlyPerL, CityLimitMonthlyPerL, CityLimitCampaignPerL, 
                ValidFrom, Unlimited, CityID
-        from CityLimits
+        from CityLimit
         where Unlimited = ?
         """
         rows = self.fetchall(sql, (unlimited,))
@@ -47,7 +47,7 @@ class CityLimitDataAccess(BaseDataAccess):
                          city_limit_yearly_per_l: int, city_limit_monthly_per_l: int, city_limit_campaign_per_l: int,
                          valid_from: date, unlimited: bool, city_id: int) -> CityLimit:
         sql = """
-        INSERT INTO CityLimits (CityLimitYearly, CityLimitMonthly, CityLimitCampaign, 
+        INSERT INTO CityLimit (CityLimitYearly, CityLimitMonthly, CityLimitCampaign, 
                                CityLimitYearlyPerL, CityLimitMonthlyPerL, CityLimitCampaignPerL, 
                                ValidFrom, Unlimited, CityID)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -61,7 +61,7 @@ class CityLimitDataAccess(BaseDataAccess):
 
     def update_city_limit(self, city_limit: CityLimit) -> None:
         sql = """
-        UPDATE CityLimits
+        UPDATE CityLimit
         SET CityLimitYearly = ?, CityLimitMonthly = ?, CityLimitCampaign = ?, 
             CityLimitYearlyPerL = ?, CityLimitMonthlyPerL = ?, CityLimitCampaignPerL = ?, 
             ValidFrom = ?, Unlimited = ?, CityID = ?
@@ -72,5 +72,5 @@ class CityLimitDataAccess(BaseDataAccess):
                           city_limit.valid_from, city_limit.unlimited, city_limit.city_id, city_limit.city_limit_id))
 
     def delete_city_limit(self, city_limit_id: int) -> None:
-        sql = "DELETE FROM CityLimits WHERE CityLimitID = ?"
+        sql = "DELETE FROM CityLimit WHERE CityLimitID = ?"
         self.execute(sql, (city_limit_id,))
