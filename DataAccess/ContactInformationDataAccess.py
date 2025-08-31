@@ -8,7 +8,7 @@ class ContactInformationDataAccess(BaseDataAccess):
 
     def get_contact_information_by_id(self, contact_information_id: int) -> ContactInformation | None:
         sql = """
-        select ContactInformationID, E_Mail, Phone, UserID
+        select ContactInformationID, EMail, Phone, UserID
         from ContactInformation
         where ContactInformationID = ?   
         """
@@ -19,16 +19,16 @@ class ContactInformationDataAccess(BaseDataAccess):
 
     def get_contact_information_by_email(self, email: str) -> list[ContactInformation]:
         sql = """
-        select ContactInformationID, E_Mail, Phone, UserID
+        select ContactInformationID, EMail, Phone, UserID
         from ContactInformation
-        where E_Mail = ?
+        where EMail = ?
         """
         rows = self.fetchall(sql, (email,))
         return [ContactInformation(*row) for row in rows]
 
     def get_contact_information_by_phone(self, phone: str) -> list[ContactInformation]:
         sql = """
-        select ContactInformationID, E_Mail, Phone, UserID
+        select ContactInformationID, EMail, Phone, UserID
         from ContactInformation
         where Phone = ?
         """
@@ -37,7 +37,7 @@ class ContactInformationDataAccess(BaseDataAccess):
 
     def get_contact_information_by_user_id(self, user_id: int) -> list[ContactInformation]:
         sql = """
-        select ContactInformationID, E_Mail, Phone, UserID
+        select ContactInformationID, EMail, Phone, UserID
         from ContactInformation
         where UserID = ?
         """
@@ -46,7 +46,7 @@ class ContactInformationDataAccess(BaseDataAccess):
 
     def get_contact_information_by_name(self, first_name: str, last_name: str) -> list[ContactInformation]:
         sql = """
-        select ci.ContactInformationID, ci.E_Mail, ci.Phone, ci.UserID
+        select ci.ContactInformationID, ci.EMail, ci.Phone, ci.UserID
         from ContactInformation ci
         join Users u on u.UserID = ci.UserID
         where u.FirstName = ? AND u.LastName = ?
@@ -56,7 +56,7 @@ class ContactInformationDataAccess(BaseDataAccess):
 
     def insert_contact_information(self, email: str, phone: str, user_id: int) -> ContactInformation:
         sql = """
-        INSERT INTO ContactInformation (E_Mail, Phone, UserID)
+        INSERT INTO ContactInformation (EMail, Phone, UserID)
         VALUES (?, ?, ?)
         """
         new_id, _ = self.execute(sql, (email, phone, user_id))
@@ -65,7 +65,7 @@ class ContactInformationDataAccess(BaseDataAccess):
     def update_contact_information(self, contact_information: ContactInformation) -> None:
         sql = """
         UPDATE ContactInformation
-        SET E_Mail = ?, Phone = ?, UserID = ?
+        SET EMail = ?, Phone = ?, UserID = ?
         WHERE ContactInformationID = ?
         """
         self.execute(sql, (contact_information.e_mail, contact_information.phone, 
