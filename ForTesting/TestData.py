@@ -18,15 +18,15 @@ cursor.execute("DELETE FROM LocationType")
 cursor.execute("DELETE FROM ContactInformation")
 cursor.execute("DELETE FROM Address")
 cursor.execute("DELETE FROM Users")
+cursor.execute("DELETE FROM States")
 
 print("Alle Daten gelöscht. Füge Testdaten ein...")
 
-# 1. LocationType einfügen (3x)
+# 1. States einfügen (2x)
 cursor.execute("""
-INSERT INTO LocationType (LocationTypeID, LocationType, UserID) VALUES 
-(1, 'Altstadt', 1),
-(2, 'Innenstadt', 1),
-(3, 'Bahnhof', 1)
+INSERT INTO States (StateID, Name) VALUES 
+(1, 'Aargau'),
+(2, 'Luzern')
 """)
 
 # 2. Users einfügen (2x)
@@ -38,55 +38,64 @@ INSERT INTO Users (UserID, LastName, FirstName, Password, Role) VALUES
 
 # 3. Cities einfügen (2x)
 cursor.execute("""
-INSERT INTO Cities (CityID, Name, State) VALUES 
-(1, 'Aarau', 'Aargau'),
-(2, 'Luzern', 'Luzern')
+INSERT INTO Cities (CityID, Name, StateID) VALUES 
+(1, 'Aarau', 1),
+(2, 'Luzern', 2)
 """)
 
-# 4. Locations einfügen (5x - 2 für Berlin, 3 für München)
+# 4. LocationTypes einfügen (3x)
+cursor.execute("""
+INSERT INTO LocationType (LocationTypeID, LocationType, UserID) VALUES 
+(1, 'Altstadt', 1),
+(2, 'Innenstadt', 1),
+(3, 'Bahnhof', 1)
+""")
+
+# 5. Locations einfügen (5x)
 cursor.execute("""
 INSERT INTO Locations (LocationID, Name, IsSBB, MaxDialog, Rating, Notes, Price, CityID, UserID) VALUES 
-(1, 'Igelweid', 0, 4, 4, NULL, 50,1, 1),
-(2, 'Bahnhofplatz', 0, 5, 1, 'Überdachte Garage', 50,1, 2),
-(3, 'Pilatusstrasse', 0, 4, 5, NULL, 100,2, 1),
-(4, 'Postplatz', 0, 3, 5, NULL, 100,2, 1),
-(5, 'Torbogen', 0, 4, 3, NULL, NULL,2, 1)
+(1, 'Igelweid', 0, 4, 4, NULL, 50.0, 1, 1),
+(2, 'Bahnhofplatz', 0, 5, 1, 'Überdachte Garage', 50.0, 1, 2),
+(3, 'Pilatusstrasse', 0, 4, 5, NULL, 100.0, 2, 1),
+(4, 'Postplatz', 0, 3, 5, NULL, 100.0, 2, 1),
+(5, 'Torbogen', 0, 4, 3, NULL, NULL, 2, 1)
 """)
 
-# 5. LocationLimits einfügen (2x für Standplätze)
+# 6. LocationLimits einfügen (2x für Standplätze)
 cursor.execute("""
 INSERT INTO LocationLimits (LocationLimitID, LocationLimitYearly, LocationLimitMonthly, LocationLimitCampaign, LocationID, ValidFrom, UserID) VALUES 
-(1, 4, NULL, NULL, 2, '2024-01-01', 1)
+(1, 4, NULL, NULL, 2, '2024-01-01', 1),
+(2, 6, 2, NULL, 3, '2024-01-01', 1)
 """)
 
-# 6. Campaign einfügen (1x)
+# 7. Campaigns einfügen (1x)
 cursor.execute("""
 INSERT INTO Campaign (CampaignID, Name, Year, Budget, UserID) VALUES 
 (1, 'Pro Natura', 2026, 20000.0, 1)
 """)
 
-# 7. CityLimit einfügen (2x für Städte)
+# 8. CityLimits einfügen (2x für Städte)
 cursor.execute("""
 INSERT INTO CityLimit (CityLimitID, CityLimitYearly, CityLimitMonthly, CityLimitCampaign, CityLimitYearlyPerL, CityLimitMonthlyPerL, CityLimitCampaignPerL, ValidFrom, Unlimited, CityID) VALUES 
 (1, 8, NULL, NULL, NULL, NULL, NULL, '2024-01-01', 0, 1),
 (2, 12, 2, NULL, 3, NULL, NULL, '2024-01-01', 0, 2)
 """)
 
-# 8. ContactInformation einfügen (2x)
+# 9. ContactInformation einfügen (2x)
 cursor.execute("""
 INSERT INTO ContactInformation (ContactInformationID, EMail, Phone, UserID) VALUES 
-(1, 'mdavidgerm3@gmail.com', 0767476030, 1),
-(2, 'david.duss@gmx.ch', 0765608598, 2)
+(1, 'davidgerm3@gmail.com', '0767476030', 1),
+(2, 'david.duss@gmx.ch', '0765608598', 2)
 """)
 
-# 9. Address einfügen (2x)
+# 10. Address einfügen (2x)
 cursor.execute("""
-INSERT INTO Address (AddressID, Street, Number, Zip, City, State, UserID) VALUES 
-(1, 'Quellenweg', '3', '5614', 'Sarmenstorf', 'Aargau', 1),
-(2, 'Jurastrasse', '8a', '5610', 'Wohlen', 'Aargau', 2)
+INSERT INTO Address (AddressID, Street, Number, Zip, City, StateID, UserID) VALUES 
+(1, 'Quellenweg', '3', '5614', 'Sarmenstorf', 1, 1),
+(2, 'Jurastrasse', '8a', '5610', 'Wohlen', 1, 2)
 """)
 
-# 10. Bookings einfügen (6x)
+# 11. Bookings einfügen (6x)
 cursor.execute("""
 INSERT INTO Bookings (BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate, Price, Confirmed, LocationID, Cancelled, CampaignID, UserID) VALUES 
 (1, '2026-01-01', '2026-01-04', '2026-01-01', 40.00, 1, 1, 0, 1, 1),

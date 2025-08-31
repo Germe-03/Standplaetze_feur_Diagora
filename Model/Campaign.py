@@ -40,6 +40,17 @@ class Campaign:
             raise TypeError("Year must be a int")
 
     @property
+    def budget(self):
+        return self.__budget
+
+    @budget.setter
+    def budget(self, budget):
+        if not budget:
+            raise ValueError("Budget is required")
+        if not isinstance(budget, (int, float)):
+            raise TypeError("Budget must be a number")
+
+    @property
     def user_id(self):
         return self.__user_id
 
