@@ -14,7 +14,7 @@ cursor.execute("DELETE FROM CityLimit")
 cursor.execute("DELETE FROM Locations")
 cursor.execute("DELETE FROM Cities")
 cursor.execute("DELETE FROM Campaign")
-cursor.execute("DELETE FROM LocationType")
+cursor.execute("DELETE FROM LocationTypes")
 cursor.execute("DELETE FROM ContactInformation")
 cursor.execute("DELETE FROM Address")
 cursor.execute("DELETE FROM Users")
@@ -45,7 +45,7 @@ INSERT INTO Cities (CityID, Name, StateID) VALUES
 
 # 4. LocationTypes einfügen (3x)
 cursor.execute("""
-INSERT INTO LocationType (LocationTypeID, LocationType, UserID) VALUES 
+INSERT INTO LocationTypes (LocationTypeID, LocationType, UserID) VALUES 
 (1, 'Altstadt', 1),
 (2, 'Innenstadt', 1),
 (3, 'Bahnhof', 1)

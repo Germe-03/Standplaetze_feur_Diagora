@@ -4,8 +4,6 @@ from DataAccess.CampaignDataAccess import CampaignDataAccess
 from DataAccess.UserDataAccess import UserDataAccess
 from Model.Booking import Booking
 from Model.Location import Location
-from Model.Campaign import Campaign
-from Model.User import User
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict
 

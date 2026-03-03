@@ -1,10 +1,5 @@
-import os
-
 from DataAccess.BaseDataAccess import BaseDataAccess
 from Model.Booking import Booking
-from Model.Location import Location
-from Model.Campaign import Campaign
-from Model.User import User
 from datetime import date, datetime
 
 

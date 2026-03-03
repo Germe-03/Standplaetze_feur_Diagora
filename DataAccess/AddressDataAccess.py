@@ -1,5 +1,3 @@
-import os
-
 from DataAccess.BaseDataAccess import BaseDataAccess
 from Model.Address import Address
 
