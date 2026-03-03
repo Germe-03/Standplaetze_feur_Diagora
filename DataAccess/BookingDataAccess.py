@@ -7,6 +7,16 @@ class BookingDataAccess(BaseDataAccess):
     def __init__(self, db_path: str = None):
         super().__init__(db_path)
 
+    def get_all_bookings(self) -> list[Booking]:
+        sql = """
+        select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
+        from Bookings
+        order by DateOfEvent desc, BookingID desc
+        """
+        rows = self.fetchall(sql)
+        return [Booking(*row) for row in rows]
+
     def get_booking_by_id(self, booking_id: int) -> Booking | None:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,

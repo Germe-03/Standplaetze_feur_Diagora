@@ -6,6 +6,15 @@ class CitiesDataAccess(BaseDataAccess):
     def __init__(self, db_path: str = None):
         super().__init__(db_path)
 
+    def get_all_cities(self) -> list[City]:
+        sql = """
+        select CityID, Name, StateID
+        from Cities
+        order by Name
+        """
+        rows = self.fetchall(sql)
+        return [City(*row) for row in rows]
+
     def get_city_by_id(self, city_id: int) -> City | None:
         sql = """
         select CityID, Name, StateID

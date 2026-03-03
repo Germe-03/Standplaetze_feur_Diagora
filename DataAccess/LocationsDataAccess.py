@@ -6,6 +6,15 @@ class LocationsDataAccess(BaseDataAccess):
     def __init__(self, db_path: str = None):
         super().__init__(db_path)
 
+    def get_all_locations(self) -> list[Location]:
+        sql = """
+        select LocationID, Name, IsSBB, MaxDialog, Rating, Notes, Price, CityID, UserID
+        from Locations
+        order by Name
+        """
+        rows = self.fetchall(sql)
+        return [Location(*row) for row in rows]
+
     def get_location_by_id(self, location_id: int) -> Location | None:
         sql = """
         select LocationID, Name, IsSBB, MaxDialog, Rating, Notes, Price, CityID, UserID
