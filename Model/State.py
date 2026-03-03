@@ -20,6 +20,7 @@ class State:
             raise ValueError("State ID is required")
         if not isinstance(state_id, int):
             raise TypeError("State ID must be an integer")
+        self.__state_id = state_id
 
     @name.setter
     def name(self, name):
@@ -27,4 +28,5 @@ class State:
             raise ValueError("Name is required")
         if not isinstance(name, str):
             raise TypeError("Name must be a string")
+        self.__name = name
 

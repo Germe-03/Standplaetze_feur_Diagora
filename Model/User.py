@@ -26,10 +26,11 @@ class User:
             raise ValueError("Last Name is required")
         if not isinstance(last_name, str):
             raise TypeError("Last Name must be a string")
+        self.__last_name = last_name
 
 
     @property
-    def first_name(self, first_name):
+    def first_name(self):
         return self.__first_name
 
     @first_name.setter
@@ -38,6 +39,7 @@ class User:
             raise ValueError("First Name is required")
         if not isinstance(first_name, str):
             raise TypeError("First Name must be a string")
+        self.__first_name = first_name
 
     @property
     def password(self):
@@ -50,6 +52,7 @@ class User:
             raise ValueError("Password is required")
         if not isinstance(password, str):
             raise TypeError("Password must be a string")
+        self.__password = password
 
 
     @property
@@ -62,3 +65,4 @@ class User:
             raise ValueError("Role is required")
         if not isinstance(role, str):
             raise TypeError("Role must be a string")
+        self.__role = role

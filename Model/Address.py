@@ -62,6 +62,7 @@ class Address:
             raise ValueError("Value is required")
         if not isinstance(number, str):
             raise TypeError("number must be a string")
+        self.__number = number
 
     @property
     def state_id(self):

@@ -26,6 +26,7 @@ class ContactInformation:
             raise ValueError("E-Mail is required")
         if not isinstance(e_mail, str):
             raise TypeError("E-Mail must be a string")
+        self.__e_mail = e_mail
 
 
     @property
@@ -38,6 +39,7 @@ class ContactInformation:
             raise TypeError("Phone must be a string")
         if not phone:
             raise ValueError("Phone is required")
+        self.__phone = phone
 
     @property
     def user_id(self):
@@ -47,5 +49,6 @@ class ContactInformation:
     def user_id(self, user_id):
         if not user_id:
             raise ValueError("User ID is required")
-        if not isinstance(user_id, str):
+        if not isinstance(user_id, int):
             raise TypeError("User ID must be a Integer")
+        self.__user_id = user_id

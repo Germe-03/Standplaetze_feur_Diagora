@@ -68,6 +68,7 @@ class CityLimit:
             raise ValueError("City limit Yearly is required")
         if not isinstance(city_limit_yearly, int):
             raise TypeError("City Limit Yearly must be a Int")
+        self.__city_limit_yearly = city_limit_yearly
 
     @city_limit_monthly.setter
     def city_limit_monthly(self, city_limit_monthly):
@@ -75,6 +76,7 @@ class CityLimit:
             raise ValueError("City limit Monthly is required")
         if not isinstance(city_limit_monthly, int):
             raise TypeError("City Limit Monthly must be a Int")
+        self.__city_limit_monthly = city_limit_monthly
 
     @city_limit_campaign.setter
     def city_limit_campaign(self, city_limit_campaign):
@@ -82,6 +84,7 @@ class CityLimit:
             raise ValueError("City limit Campaign is required")
         if not isinstance(city_limit_campaign, int):
             raise TypeError("City Limit Campaign must be a Int")
+        self.__city_limit_campaign = city_limit_campaign
 
     @city_limit_yearly_per_l.setter
     def city_limit_yearly_per_l(self, city_limit_yearly_per_l):
@@ -89,6 +92,7 @@ class CityLimit:
             raise ValueError("City limit Yearly per Location is required")
         if not isinstance(city_limit_yearly_per_l, int):
             raise TypeError("City Limit Yearly per Location must be a Int")
+        self.__city_limit_yearly_per_l = city_limit_yearly_per_l
 
     @city_limit_monthly_per_l.setter
     def city_limit_monthly_per_l(self, city_limit_monthly_per_l):
@@ -96,6 +100,7 @@ class CityLimit:
             raise ValueError("City Limit Monthly per Location is required")
         if not isinstance(city_limit_monthly_per_l, int):
             raise TypeError("City Limit Monthly per Location must be a Int")
+        self.__city_limit_monthly_per_l = city_limit_monthly_per_l
 
     @city_limit_campaign_per_l.setter
     def city_limit_campaign_per_l(self, city_limit_campaign_per_l):
@@ -103,6 +108,7 @@ class CityLimit:
             raise ValueError("City Limit Campaign per Location is required")
         if not isinstance(city_limit_campaign_per_l, int):
             raise TypeError("City Limit Campaign per Location must be a Int")
+        self.__city_limit_campaign_per_l = city_limit_campaign_per_l
 
     @valid_from.setter
     def valid_from(self, valid_from):
@@ -110,13 +116,13 @@ class CityLimit:
             raise ValueError("Date Valid From is required")
         if not isinstance(valid_from, date):
             raise TypeError("Date of event must be a date")
+        self.__valid_from = valid_from
 
     @unlimited.setter
     def unlimited(self, unlimited):
         if not isinstance(unlimited, bool):
             raise TypeError("Unlimited must be a Bool")
-        if not unlimited:
-            raise ValueError("Unlimited is required")
+        self.__unlimited = unlimited
 
     @city_id.setter
     def city_id(self, city_id):
@@ -124,3 +130,4 @@ class CityLimit:
             raise ValueError("City ID is required")
         if not isinstance(city_id, int):
             raise TypeError("City ID must be a Int")
+        self.__city_id = city_id

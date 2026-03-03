@@ -4,7 +4,7 @@ import sqlite3
 class BaseDataAccess:
     def __init__(self, db_connection_str: str = None):
         self.__db_connection_str = db_connection_str or os.environ.get(
-            "DB_FILE", "databank/StandplaetzeDatabank.db"
+            "DB_FILE", "Databank/StandplaetzeDatabank.db"
         )
 
     def _connect(self):

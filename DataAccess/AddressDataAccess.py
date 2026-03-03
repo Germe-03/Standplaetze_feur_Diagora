@@ -19,6 +19,51 @@ class AddressDataAccess(BaseDataAccess):
             return Address(*row)
         return None
 
+    def get_addresses_by_user_id(self, user_id: int) -> list[Address]:
+        sql = """
+        select AddressID, Street, Number, Zip, City, StateID, UserID
+        from Address
+        where UserID = ?
+        """
+        rows = self.fetchall(sql, (user_id,))
+        return [Address(*row) for row in rows]
+
+    def get_addresses_by_street(self, street: str) -> list[Address]:
+        sql = """
+        select AddressID, Street, Number, Zip, City, StateID, UserID
+        from Address
+        where Street = ?
+        """
+        rows = self.fetchall(sql, (street,))
+        return [Address(*row) for row in rows]
+
+    def get_addresses_by_city(self, city: str) -> list[Address]:
+        sql = """
+        select AddressID, Street, Number, Zip, City, StateID, UserID
+        from Address
+        where City = ?
+        """
+        rows = self.fetchall(sql, (city,))
+        return [Address(*row) for row in rows]
+
+    def get_addresses_by_zip(self, zip_code: str) -> list[Address]:
+        sql = """
+        select AddressID, Street, Number, Zip, City, StateID, UserID
+        from Address
+        where Zip = ?
+        """
+        rows = self.fetchall(sql, (zip_code,))
+        return [Address(*row) for row in rows]
+
+    def get_addresses_by_state_id(self, state_id: int) -> list[Address]:
+        sql = """
+        select AddressID, Street, Number, Zip, City, StateID, UserID
+        from Address
+        where StateID = ?
+        """
+        rows = self.fetchall(sql, (state_id,))
+        return [Address(*row) for row in rows]
+
 
     def insert_address(self, street: str, number: str, zip: str, city: str, state_id: int, user_id: int) -> Address:
         sql = """

@@ -27,6 +27,7 @@ class Campaign:
             raise ValueError("Name is required")
         if not isinstance(name, str):
             raise TypeError("Name must be a string")
+        self.__name = name
 
     @property
     def year(self):
@@ -38,6 +39,7 @@ class Campaign:
             raise ValueError("Year is required")
         if not isinstance(year, int):
             raise TypeError("Year must be a int")
+        self.__year = year
 
     @property
     def budget(self):
@@ -45,10 +47,11 @@ class Campaign:
 
     @budget.setter
     def budget(self, budget):
-        if not budget:
+        if budget is None:
             raise ValueError("Budget is required")
         if not isinstance(budget, (int, float)):
             raise TypeError("Budget must be a number")
+        self.__budget = float(budget)
 
     @property
     def user_id(self):
@@ -58,5 +61,6 @@ class Campaign:
     def user_id(self, user_id):
         if not user_id:
             raise ValueError("User ID is required")
-        if not isinstance(user_id, str):
+        if not isinstance(user_id, int):
             raise TypeError("User ID must be a Integer")
+        self.__user_id = user_id

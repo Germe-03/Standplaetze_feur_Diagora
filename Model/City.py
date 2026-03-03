@@ -6,8 +6,8 @@ class City:
         self.__name = name
         self.__state_id = state_id
 
-        def __repr__(self):
-            return (f"City(id={self.__city_id!r}, City Name={self.__name!r}, StateID={self.__state_id!r}")
+    def __repr__(self):
+        return f"City(id={self.__city_id!r}, name={self.__name!r}, state_id={self.__state_id!r})"
 
     @property
     def city_id(self):
@@ -27,6 +27,7 @@ class City:
             raise ValueError("Name is required")
         if not isinstance(name, str):
             raise TypeError("Name must be a string")
+        self.__name = name
 
     @state_id.setter
     def state_id(self, state_id):
@@ -34,3 +35,4 @@ class City:
             raise ValueError("State ID is required")
         if not isinstance(state_id, int):
             raise TypeError("State ID must be an integer")
+        self.__state_id = state_id
