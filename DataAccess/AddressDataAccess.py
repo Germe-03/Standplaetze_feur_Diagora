@@ -35,7 +35,18 @@ class AddressDataAccess(BaseDataAccess):
         SET street = ?, Number = ?, Zip = ?, City = ?, StateID = ?, UserID = ?
         WHERE addressID = ?
         """
-        self.execute(sql, (address.street, address.number, address.zip, address.city, address.state_id, address.user_id))
+        self.execute(
+            sql,
+            (
+                address.street,
+                address.number,
+                address.zip,
+                address.city,
+                address.state_id,
+                address.user_id,
+                address.address_id,
+            ),
+        )
 
     def delete_address(self, address_id: int) -> None:
         sql = "DELETE FROM address WHERE addressID = ?"

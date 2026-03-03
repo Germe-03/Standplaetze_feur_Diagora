@@ -14,10 +14,13 @@ class Booking:
         self.__campaign_id = campaign_id
         self.__user_id = user_id
 
-        def __repr__(self):
-            return (f"Booking(id={self.__booking_id!r}, Date of Booking={self.__date_of_booking!r}, Date Of last Event={self.__date_of_event!r}"
-                    f"Date of Last Update={self.__date_of_last_update!r}), price={self.__price!r}, confirmed={self.__confirmed!r}, location_id={self.__Location_id!r}"
-                    f"cancelled={self.__cancelled!r}, campaign ID={self.__campaign_id!r}, user ID={self.__user_id!r}")
+    def __repr__(self):
+        return (
+            f"Booking(id={self.__booking_id!r}, date_of_booking={self.__date_of_booking!r}, "
+            f"date_of_event={self.__date_of_event!r}, date_of_last_update={self.__date_of_last_update!r}, "
+            f"price={self.__price!r}, confirmed={self.__confirmed!r}, location_id={self.__location_id!r}, "
+            f"cancelled={self.__cancelled!r}, campaign_id={self.__campaign_id!r}, user_id={self.__user_id!r})"
+        )
 
     @property
     def booking_id(self):
@@ -33,6 +36,7 @@ class Booking:
             raise ValueError("Date of booking is required")
         if not isinstance(date_of_booking, date):
             raise TypeError("Date of booking must be a string")
+        self.__date_of_booking = date_of_booking
 
     @property
     def date_of_event(self):
@@ -44,6 +48,7 @@ class Booking:
             raise ValueError("Date of event is required")
         if not isinstance(date_of_event, date):
             raise TypeError("Date of event must be a string")
+        self.__date_of_event = date_of_event
 
     @property
     def date_of_last_update(self):
@@ -55,6 +60,7 @@ class Booking:
             raise ValueError("Date of last update is required")
         if not isinstance(date_of_last_update, date):
             raise TypeError("Date of last update must be a string")
+        self.__date_of_last_update = date_of_last_update
 
     @property
     def price(self):
@@ -62,10 +68,11 @@ class Booking:
 
     @price.setter
     def price(self, price):
-        if not isinstance(price, float):
+        if not isinstance(price, (int, float)):
             raise TypeError("Price must be a float")
-        if not price:
+        if price is None:
             raise ValueError("Price is required")
+        self.__price = float(price)
 
     @property
     def confirmed(self):
@@ -75,8 +82,7 @@ class Booking:
     def confirmed(self, confirmed):
         if not isinstance(confirmed, bool):
             raise TypeError("Confirmed must be a bool")
-        if not confirmed:
-            raise ValueError("Confirmed is required")
+        self.__confirmed = confirmed
 
     @property
     def location_id(self):
@@ -88,20 +94,20 @@ class Booking:
             raise TypeError("Location ID must be a int")
         if not location_id:
             raise ValueError("Location ID is required")
+        self.__location_id = location_id
 
     @property
-    def cancelled(self, cancelled):
+    def cancelled(self):
         return self.__cancelled
 
     @cancelled.setter
     def cancelled(self, cancelled):
         if not isinstance(cancelled, bool):
             raise TypeError("Cancelled must be a bool")
-        if not cancelled:
-            raise ValueError("Cancelled is required")
+        self.__cancelled = cancelled
 
     @property
-    def campaign_id(self, campaign_id):
+    def campaign_id(self):
         return self.__campaign_id
 
     @campaign_id.setter
@@ -110,6 +116,7 @@ class Booking:
             raise TypeError("Campaign ID must be a int")
         if not campaign_id:
             raise ValueError("Campaign ID is required")
+        self.__campaign_id = campaign_id
 
     @property
     def user_id(self):
@@ -121,4 +128,5 @@ class Booking:
             raise TypeError("User ID must be a int")
         if not user_id:
             raise ValueError("User ID is required")
+        self.__user_id = user_id
 

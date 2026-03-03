@@ -1,5 +1,5 @@
 class Location:
-    def __init__(self, location_id, name, is_sbb, max_dialog, rating, price, note, city_id, user_id):
+    def __init__(self, location_id, name, is_sbb, max_dialog, rating, note, price, city_id, user_id):
         self.__location_id = location_id
         self.__name = name
         self.__is_sbb = is_sbb
@@ -51,13 +51,13 @@ class Location:
             raise ValueError("Name is required")
         if not isinstance(name, str):
             raise TypeError("Name must be a String")
+        self.__name = name
 
     @is_sbb.setter
     def is_sbb(self, is_sbb):
-        if not is_sbb:
-            raise ValueError("SBB is required")
         if not isinstance(is_sbb, bool):
             raise TypeError("SBB must be a Boolean")
+        self.__is_sbb = is_sbb
 
     @max_dialog.setter
     def max_dialog(self, max_dialog):
@@ -65,6 +65,7 @@ class Location:
             raise ValueError("Max Dialog is required")
         if not isinstance(max_dialog, int):
             raise TypeError("Max Dialog must be a Int")
+        self.__max_dialog = max_dialog
 
     @rating.setter
     def rating(self, rating):
@@ -72,20 +73,19 @@ class Location:
             raise ValueError("Rating is required")
         if not isinstance(rating, int):
             raise TypeError("Rating must be a Integer")
+        self.__rating = rating
 
     @note.setter
     def note(self, note):
-        if not note:
-            raise ValueError("Note is required")
-        if not isinstance(note, str):
+        if note is not None and not isinstance(note, str):
             raise TypeError("Note must be a String")
+        self.__note = note
 
     @price.setter
     def price(self, price):
-        if not price:
-            raise ValueError("Price is required")
-        if not isinstance(price, float):
+        if price is not None and not isinstance(price, (int, float)):
             raise TypeError("Price must be a Float")
+        self.__price = float(price) if price is not None else None
 
     @city_id.setter
     def city_id(self, city_id):
@@ -93,6 +93,7 @@ class Location:
             raise ValueError("City ID is required")
         if not isinstance(city_id, int):
             raise TypeError("City ID must be a Int")
+        self.__city_id = city_id
 
     @user_id.setter
     def user_id(self, user_id):
@@ -100,5 +101,6 @@ class Location:
             raise ValueError("User ID is required")
         if not isinstance(user_id, int):
             raise TypeError("User ID must be a Int")
+        self.__user_id = user_id
 
 

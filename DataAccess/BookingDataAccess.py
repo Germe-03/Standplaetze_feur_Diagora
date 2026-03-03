@@ -15,7 +15,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_booking_by_id(self, booking_id: int) -> Booking | None:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where BookingID = ?    
         """
@@ -27,7 +27,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_date_of_booking(self, start_us_date: str, end_us_date: str) -> list[Booking]:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where DateOfBooking between ? and ?
         """
@@ -37,7 +37,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_date_of_event(self, start_us_date: str, end_us_date: str) -> list[Booking]:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where DateOfEvent between ? and ?
         """
@@ -47,7 +47,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_date_of_last_update(self, start_us_date: str, end_us_date: str) -> list[Booking]:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where DateOfLastUpdate between ? and ?
         """
@@ -57,7 +57,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_price(self, min_price: float, max_price: float) -> list[Booking]:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where Price between ? and ?
         """
@@ -67,7 +67,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_campaign_id(self, campaign_id: int) -> list[Booking]:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where CampaignID = ?
         """
@@ -77,7 +77,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_location_id(self, location_id: int) -> list[Booking]:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where LocationID = ?
         """
@@ -87,7 +87,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_user_id(self, user_id: int) -> list[Booking]:
         sql = """
         select BookingID, DateOfBooking, DateOfEvent, DateOfLastUpdate,
-            Price, Confirmed, LocationID, CampaignID, UserID
+            Price, Confirmed, LocationID, Cancelled, CampaignID, UserID
         from Bookings
         where UserID = ?
         """
@@ -97,7 +97,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_city(self, city: str) -> list[Booking]:
         sql = """
         select b.BookingID, b.DateOfBooking, b.DateOfEvent, b.DateOfLastUpdate,
-            b.Price, b.Confirmed, b.LocationID, b.CampaignID, b.UserID
+            b.Price, b.Confirmed, b.LocationID, b.Cancelled, b.CampaignID, b.UserID
         from Bookings b
         join Locations l on l.LocationID = b.LocationID
         join Cities c on c.CityID = l.CityID
@@ -109,7 +109,7 @@ class BookingDataAccess(BaseDataAccess):
     def get_bookings_by_state(self, state: str) -> list[Booking]:
         sql = """
         select b.BookingID, b.DateOfBooking, b.DateOfEvent, b.DateOfLastUpdate,
-            b.Price, b.Confirmed, b.LocationID, b.CampaignID, b.UserID
+            b.Price, b.Confirmed, b.LocationID, b.Cancelled, b.CampaignID, b.UserID
         from Bookings b
         join Locations l on l.LocationID = b.LocationID
         join Cities c on c.CityID = l.CityID
