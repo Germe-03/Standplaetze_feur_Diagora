@@ -63,5 +63,5 @@ class LocationTypeDataAccess(BaseDataAccess):
         self.execute(sql, (location_type_obj.location_type, location_type_obj.user_id, location_type_obj.location_type_id))
 
     def delete_location_type(self, location_type_id: int) -> None:
-        sql = "DELETE FROM LocationTypes WHERE LocationTypeID = ?"
+        sql = "DELETE FROM LocationType WHERE LocationTypeID = ?"
         self.execute(sql, (location_type_id,))
