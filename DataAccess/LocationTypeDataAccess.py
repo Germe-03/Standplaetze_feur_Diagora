@@ -11,7 +11,7 @@ class LocationTypeDataAccess(BaseDataAccess):
     def get_location_type_by_id(self, location_type_id: int) -> LocationType | None:
         sql = """
         select LocationTypeID, LocationType, UserID
-        from LocationTypes
+        from LocationType
         where LocationTypeID = ?   
         """
         row = self.fetchone(sql, (location_type_id,))
@@ -22,7 +22,7 @@ class LocationTypeDataAccess(BaseDataAccess):
     def get_location_type_by_name(self, location_type: str) -> list[LocationType]:
         sql = """
         select LocationTypeID, LocationType, UserID
-        from LocationTypes
+        from LocationType
         where LocationType = ?
         """
         rows = self.fetchall(sql, (location_type,))
@@ -31,7 +31,7 @@ class LocationTypeDataAccess(BaseDataAccess):
     def get_location_types_by_user_id(self, user_id: int) -> list[LocationType]:
         sql = """
         select LocationTypeID, LocationType, UserID
-        from LocationTypes
+        from LocationType
         where UserID = ?
         """
         rows = self.fetchall(sql, (user_id,))
@@ -40,7 +40,7 @@ class LocationTypeDataAccess(BaseDataAccess):
     def get_all_location_types(self) -> list[LocationType]:
         sql = """
         select LocationTypeID, LocationType, UserID
-        from LocationTypes
+        from LocationType
         order by LocationType
         """
         rows = self.fetchall(sql)
@@ -48,7 +48,7 @@ class LocationTypeDataAccess(BaseDataAccess):
 
     def insert_location_type(self, location_type: str, user_id: int) -> LocationType:
         sql = """
-        INSERT INTO LocationTypes (LocationType, UserID)
+        INSERT INTO LocationType (LocationType, UserID)
         VALUES (?, ?)
         """
         new_id, _ = self.execute(sql, (location_type, user_id))
@@ -56,7 +56,7 @@ class LocationTypeDataAccess(BaseDataAccess):
 
     def update_location_type(self, location_type_obj: LocationType) -> None:
         sql = """
-        UPDATE LocationTypes
+        UPDATE LocationType
         SET LocationType = ?, UserID = ?
         WHERE LocationTypeID = ?
         """
