@@ -108,6 +108,25 @@ class LocationsDataAccess(BaseDataAccess):
         self.execute(sql, (location.name, location.is_sbb, location.max_dialog, location.rating,
                           location.note, location.price, location.city_id, location.user_id, location.location_id))
 
+    def update_location_fields(
+        self,
+        location_id: int,
+        name: str,
+        is_sbb: bool,
+        max_dialog: int,
+        rating: int,
+        note: str | None,
+        price: float | None,
+        city_id: int,
+        user_id: int,
+    ) -> None:
+        sql = """
+        UPDATE Locations
+        SET Name = ?, IsSBB = ?, MaxDialog = ?, Rating = ?, Notes = ?, Price = ?, CityID = ?, UserID = ?
+        WHERE LocationID = ?
+        """
+        self.execute(sql, (name, is_sbb, max_dialog, rating, note, price, city_id, user_id, location_id))
+
     def delete_location(self, location_id: int) -> None:
         sql = "DELETE FROM Locations WHERE LocationID = ?"
         self.execute(sql, (location_id,))

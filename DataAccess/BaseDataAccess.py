@@ -42,3 +42,11 @@ class BaseDataAccess:
                 rowcount = cur.rowcount
                 cur.close()
         return lastrowid, rowcount
+
+    def get_next_id(self, table_name: str, id_column: str) -> int:
+        seq_row = self.fetchone("SELECT seq FROM sqlite_sequence WHERE name = ?", (table_name,))
+        if seq_row and seq_row[0] is not None:
+            return int(seq_row[0]) + 1
+        max_row = self.fetchone(f"SELECT MAX({id_column}) FROM {table_name}")
+        max_value = max_row[0] if max_row else None
+        return (int(max_value) + 1) if max_value is not None else 1

@@ -5,11 +5,38 @@ let meta = { locations: [], campaigns: [], cities: [], users: [] };
 const API_BASE = window.__API_BASE__ || "";
 const bookingSort = { key: "id", dir: "desc" };
 const standSort = { key: "id", dir: "asc" };
+const columnFilters = { bookings: {}, stands: {} };
+const DATE_FILTER_KEYS = {
+    bookings: new Set(["created_at", "date"]),
+    stands: new Set(["limit_valid_from"])
+};
 
 let bookingEditId = null;
 let standEditId = null;
 let nextBookingId = null;
 let nextStandId = null;
+let activeColumnFilter = null;
+
+function getActiveFilterState() {
+    if (!activeColumnFilter) {
+        return null;
+    }
+    const { table, key } = activeColumnFilter;
+    return { table, key };
+}
+
+function isDateFilterColumn(table, key) {
+    return Boolean(DATE_FILTER_KEYS[table] && DATE_FILTER_KEYS[table].has(key));
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
 
 function compareValues(a, b, dir = "asc") {
     const ax = a ?? "";
@@ -98,16 +125,420 @@ function closeStandEditMode() {
     updateStandCityRequirement();
 }
 
-function renderDashboard(metrics) {
-    const total = metrics.total || 0;
-    const confirmed = metrics.confirmed || 0;
-    const open = metrics.open || 0;
-    const revenue = metrics.revenue || 0;
+function setTextIfExists(id, value) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.textContent = value;
+    }
+}
 
-    document.getElementById("metric-total").textContent = String(total);
-    document.getElementById("metric-confirmed").textContent = String(confirmed);
-    document.getElementById("metric-open").textContent = String(open);
-    document.getElementById("metric-revenue").textContent = `CHF ${Number(revenue).toFixed(2)}`;
+function renderDashboard(yearMetrics, monthMetrics) {
+    const y = yearMetrics || {};
+    const m = monthMetrics || {};
+
+    setTextIfExists("metric-year-total", String(y.total || 0));
+    setTextIfExists("metric-year-confirmed", String(y.confirmed || 0));
+    setTextIfExists("metric-year-open", String(y.open || 0));
+    setTextIfExists("metric-year-revenue", `CHF ${Number(y.revenue || 0).toFixed(2)}`);
+
+    setTextIfExists("metric-month-total", String(m.total || 0));
+    setTextIfExists("metric-month-confirmed", String(m.confirmed || 0));
+    setTextIfExists("metric-month-open", String(m.open || 0));
+    setTextIfExists("metric-month-revenue", `CHF ${Number(m.revenue || 0).toFixed(2)}`);
+
+    // Backward-compatible support for older cached dashboard layout (single row IDs).
+    setTextIfExists("metric-total", String(m.total || 0));
+    setTextIfExists("metric-confirmed", String(m.confirmed || 0));
+    setTextIfExists("metric-open", String(m.open || 0));
+    setTextIfExists("metric-revenue", `CHF ${Number(m.revenue || 0).toFixed(2)}`);
+}
+
+function initDashboardMonthOptions() {
+    const select = document.getElementById("dashboard-month");
+    if (!select) {
+        return;
+    }
+    const yearSelect = document.getElementById("dashboard-year");
+    const now = new Date();
+    const year = Number(yearSelect?.value || now.getFullYear());
+    const monthNames = [
+        "Januar", "Februar", "Maerz", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember"
+    ];
+
+    const currentValue = select.value;
+    select.innerHTML = "";
+    for (let m = 1; m <= 12; m++) {
+        const value = String(m).padStart(2, "0");
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = `${monthNames[m - 1]} ${year}`;
+        select.appendChild(option);
+    }
+
+    if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+        select.value = currentValue;
+    } else if (year === now.getFullYear()) {
+        select.value = String(now.getMonth() + 1).padStart(2, "0");
+    } else {
+        select.value = "01";
+    }
+}
+
+function initDashboardYearOptions() {
+    const select = document.getElementById("dashboard-year");
+    if (!select) {
+        return;
+    }
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const years = new Set([currentYear]);
+
+    (bookings || []).forEach(item => {
+        const d = String(item.date || "");
+        const y = Number(d.slice(0, 4));
+        if (!Number.isNaN(y) && y > 1900 && y < 3000) {
+            years.add(y);
+        }
+    });
+
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
+    const currentValue = select.value;
+    select.innerHTML = "";
+    sortedYears.forEach(y => {
+        const option = document.createElement("option");
+        option.value = String(y);
+        option.textContent = String(y);
+        select.appendChild(option);
+    });
+
+    if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+        select.value = currentValue;
+    } else {
+        select.value = String(currentYear);
+    }
+}
+
+function initDashboardCampaignOptionsFor(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) {
+        return;
+    }
+
+    const currentValue = select.value;
+    select.innerHTML = "";
+    const allOption = document.createElement("option");
+    allOption.value = "";
+    allOption.textContent = "Alle Kampagnen";
+    select.appendChild(allOption);
+
+    const campaigns = [...(meta.campaigns || [])]
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de", { sensitivity: "base" }));
+
+    campaigns.forEach(campaign => {
+        const option = document.createElement("option");
+        option.value = String(campaign.id);
+        option.textContent = campaign.name;
+        select.appendChild(option);
+    });
+
+    if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+        select.value = currentValue;
+    } else {
+        select.value = "";
+    }
+}
+
+function initDashboardCampaignOptions() {
+    initDashboardCampaignOptionsFor("dashboard-campaign-year");
+    initDashboardCampaignOptionsFor("dashboard-campaign-month");
+    initDashboardCampaignOptionsFor("dashboard-chart-campaign");
+}
+
+function initDashboardChartPeriodOptions() {
+    const select = document.getElementById("dashboard-chart-period");
+    const yearSelect = document.getElementById("dashboard-year");
+    if (!select) {
+        return;
+    }
+    const year = Number(yearSelect?.value || new Date().getFullYear());
+    const currentValue = select.value;
+    const monthNames = [
+        "Januar", "Februar", "Maerz", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember"
+    ];
+
+    select.innerHTML = "";
+    const yearOption = document.createElement("option");
+    yearOption.value = "year";
+    yearOption.textContent = `Ganzes Jahr ${year}`;
+    select.appendChild(yearOption);
+
+    for (let m = 1; m <= 12; m++) {
+        const value = String(m).padStart(2, "0");
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = `${monthNames[m - 1]} ${year}`;
+        select.appendChild(option);
+    }
+
+    if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+        select.value = currentValue;
+    } else {
+        select.value = "year";
+    }
+}
+
+function getDaysInMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+}
+
+function drawChartFallbackMessage(canvasId, message) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        return;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(320, Math.floor(rect.width || canvas.clientWidth || 640));
+    const height = Math.max(220, Math.floor(rect.height || canvas.clientHeight || 260));
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        return;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = "#bfd7f1";
+    ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+    ctx.fillStyle = "#3f5f87";
+    ctx.font = "13px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(message, width / 2, height / 2);
+}
+
+function installDashboardChartsFallback() {
+    if (window.DashboardCharts) {
+        return;
+    }
+
+    function renderSimpleLine(canvasId, labels, values, color, currencyMode) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            return;
+        }
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(320, Math.floor(rect.width || canvas.clientWidth || 640));
+        const height = Math.max(220, Math.floor(rect.height || canvas.clientHeight || 260));
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+
+        const area = { left: 46, top: 14, right: width - 12, bottom: height - 26 };
+        const max = Math.max(1, ...values.map(v => Number(v || 0)));
+
+        ctx.strokeStyle = "#d3e5f8";
+        ctx.lineWidth = 1;
+        for (let i = 1; i <= 4; i++) {
+            const y = area.bottom - (i * (area.bottom - area.top) / 4);
+            ctx.beginPath();
+            ctx.moveTo(area.left, y);
+            ctx.lineTo(area.right, y);
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = "#95b8dc";
+        ctx.beginPath();
+        ctx.moveTo(area.left, area.top);
+        ctx.lineTo(area.left, area.bottom);
+        ctx.lineTo(area.right, area.bottom);
+        ctx.stroke();
+
+        if (values.length > 0) {
+            const stepX = values.length > 1 ? (area.right - area.left) / (values.length - 1) : 0;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            values.forEach((v, idx) => {
+                const x = area.left + stepX * idx;
+                const y = area.bottom - ((Number(v || 0) / max) * (area.bottom - area.top));
+                if (idx === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = "#446b95";
+        ctx.font = "11px Manrope, sans-serif";
+        ctx.textAlign = "right";
+        const formatY = currencyMode ? (v => `CHF ${Math.round(v)}`) : (v => String(Math.round(v)));
+        for (let i = 0; i <= 4; i++) {
+            const value = (max / 4) * i;
+            const y = area.bottom - (i * (area.bottom - area.top) / 4);
+            ctx.fillText(formatY(value), area.left - 8, y + 3);
+        }
+
+        ctx.textAlign = "center";
+        if (labels.length > 0) {
+            const stepX = labels.length > 1 ? (area.right - area.left) / (labels.length - 1) : 0;
+            labels.forEach((label, idx) => {
+                const x = area.left + stepX * idx;
+                ctx.fillText(String(label), x, area.bottom + 15);
+            });
+        }
+    }
+
+    window.DashboardCharts = {
+        renderCountChart(canvasId, labels, values) {
+            renderSimpleLine(canvasId, labels, values, "#2f6fb0", false);
+        },
+        renderCostChart(canvasId, labels, values) {
+            renderSimpleLine(canvasId, labels, values, "#3b8db6", true);
+        }
+    };
+}
+
+function renderDashboardCharts() {
+    installDashboardChartsFallback();
+    if (!window.DashboardCharts) {
+        drawChartFallbackMessage("dashboard-chart-bookings", "Diagramm nicht geladen (charts.js fehlt).");
+        drawChartFallbackMessage("dashboard-chart-costs", "Diagramm nicht geladen (charts.js fehlt).");
+        return;
+    }
+    const yearSelect = document.getElementById("dashboard-year");
+    const periodSelect = document.getElementById("dashboard-chart-period");
+    const campaignSelect = document.getElementById("dashboard-chart-campaign");
+
+    const selectedYear = Number(yearSelect?.value || new Date().getFullYear());
+    const selectedPeriod = String(periodSelect?.value || "year");
+    const selectedCampaign = String(campaignSelect?.value || "").trim();
+
+    const filtered = bookings.filter(item => {
+        if (Boolean(item.cancelled) || !Boolean(item.confirmed)) {
+            return false;
+        }
+        if (selectedCampaign && String(item.campaign_id ?? "") !== selectedCampaign) {
+            return false;
+        }
+        const d = String(item.date || "");
+        if (!d.startsWith(`${selectedYear}-`)) {
+            return false;
+        }
+        if (selectedPeriod !== "year" && !d.startsWith(`${selectedYear}-${selectedPeriod}-`)) {
+            return false;
+        }
+        return true;
+    });
+
+    let labels = [];
+    let countValues = [];
+    let costValues = [];
+
+    if (selectedPeriod === "year") {
+        const monthNamesShort = ["Jan", "Feb", "Mrz", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+        labels = monthNamesShort;
+        countValues = new Array(12).fill(0);
+        costValues = new Array(12).fill(0);
+        filtered.forEach(item => {
+            const month = Number(String(item.date || "").slice(5, 7));
+            if (month >= 1 && month <= 12) {
+                countValues[month - 1] += 1;
+                costValues[month - 1] += Number(item.price || 0);
+            }
+        });
+    } else {
+        const month = Number(selectedPeriod);
+        const days = getDaysInMonth(selectedYear, month);
+        labels = Array.from({ length: days }, (_, i) => String(i + 1));
+        countValues = new Array(days).fill(0);
+        costValues = new Array(days).fill(0);
+        filtered.forEach(item => {
+            const day = Number(String(item.date || "").slice(8, 10));
+            if (day >= 1 && day <= days) {
+                countValues[day - 1] += 1;
+                costValues[day - 1] += Number(item.price || 0);
+            }
+        });
+    }
+
+    try {
+        window.DashboardCharts.renderCountChart("dashboard-chart-bookings", labels, countValues);
+        window.DashboardCharts.renderCostChart("dashboard-chart-costs", labels, costValues);
+    } catch (error) {
+        console.error("Chart rendering failed", error);
+        drawChartFallbackMessage("dashboard-chart-bookings", "Diagramm konnte nicht gezeichnet werden.");
+        drawChartFallbackMessage("dashboard-chart-costs", "Diagramm konnte nicht gezeichnet werden.");
+    }
+}
+
+function computeMetricsForPeriod(items) {
+    const safe = items.filter(item => !Boolean(item.cancelled));
+    const total = safe.length;
+    const confirmed = safe.filter(item => Boolean(item.confirmed)).length;
+    const open = safe.filter(item => !Boolean(item.confirmed)).length;
+    const revenue = safe.reduce((sum, item) => sum + Number(item.price || 0), 0);
+    return { total, confirmed, open, revenue };
+}
+
+function renderDashboardFromBookings() {
+    const yearSelect = document.getElementById("dashboard-year");
+    const monthSelect = document.getElementById("dashboard-month");
+    const yearCampaignSelect = document.getElementById("dashboard-campaign-year");
+    const monthCampaignSelect = document.getElementById("dashboard-campaign-month");
+    const selectedYear = Number(yearSelect?.value || new Date().getFullYear());
+    const selectedMonth = String(monthSelect?.value || "").trim();
+    const selectedYearCampaign = String(yearCampaignSelect?.value || "").trim();
+    const selectedMonthCampaign = String(monthCampaignSelect?.value || "").trim();
+    if (!selectedMonth || Number.isNaN(selectedYear)) {
+        renderDashboard({ total: 0, confirmed: 0, open: 0, revenue: 0 }, { total: 0, confirmed: 0, open: 0, revenue: 0 });
+        return;
+    }
+    const selectedMonthNum = Number(selectedMonth);
+
+    const scopedYearBookings = bookings.filter(item => {
+        if (!selectedYearCampaign) {
+            return true;
+        }
+        return String(item.campaign_id ?? "") === selectedYearCampaign;
+    });
+
+    const yearBookings = scopedYearBookings.filter(item => {
+        const d = String(item.date || "");
+        return d.startsWith(`${selectedYear}-`);
+    });
+
+    const scopedMonthBookings = bookings.filter(item => {
+        if (!selectedMonthCampaign) {
+            return true;
+        }
+        return String(item.campaign_id ?? "") === selectedMonthCampaign;
+    });
+
+    const monthBookings = scopedMonthBookings.filter(item => {
+        const d = String(item.date || "");
+        return d.startsWith(`${selectedYear}-${String(selectedMonthNum).padStart(2, "0")}-`);
+    });
+
+    renderDashboard(
+        computeMetricsForPeriod(yearBookings),
+        computeMetricsForPeriod(monthBookings)
+    );
+    renderDashboardCharts();
 }
 
 function startBookingEdit(bookingId) {
@@ -158,31 +589,8 @@ function startStandEdit(standId) {
 }
 
 function renderBookings() {
-    const search = (document.getElementById("booking-search")?.value || "").trim().toLowerCase();
-    const dateFrom = document.getElementById("booking-date-from")?.value || "";
-    const dateTo = document.getElementById("booking-date-to")?.value || "";
-    const status = getBookingStatusCode();
-
     const filtered = bookings.filter(booking => {
-        const bookingDate = booking.date || "";
-        const bySearch =
-            !search ||
-            String(booking.stand || "").toLowerCase().includes(search) ||
-            String(booking.city || "").toLowerCase().includes(search) ||
-            String(booking.campaign || "").toLowerCase().includes(search);
-        const byFrom = !dateFrom || bookingDate >= dateFrom;
-        const byTo = !dateTo || bookingDate <= dateTo;
-
-        let byStatus = true;
-        if (status === "confirmed") {
-            byStatus = Boolean(booking.confirmed) && !Boolean(booking.cancelled);
-        } else if (status === "open") {
-            byStatus = !Boolean(booking.confirmed) && !Boolean(booking.cancelled);
-        } else if (status === "cancelled") {
-            byStatus = Boolean(booking.cancelled);
-        }
-
-        return bySearch && byFrom && byTo && byStatus;
+        return matchesColumnFilters("bookings", booking);
     });
 
     const sorted = [...filtered].sort((a, b) => {
@@ -216,66 +624,8 @@ function renderBookings() {
 }
 
 function renderStands() {
-    const parseOptionalNumber = id => {
-        const raw = document.getElementById(id)?.value ?? "";
-        if (raw === "") {
-            return null;
-        }
-        const value = Number(raw);
-        return Number.isNaN(value) ? null : value;
-    };
-
-    const nameFilter = (document.getElementById("stand-name")?.value || "").trim().toLowerCase();
-    const cityKantonFilter = (document.getElementById("stand-city-kanton")?.value || "").trim().toLowerCase();
-
-    const priceMin = parseOptionalNumber("stand-price-min");
-    const priceMax = parseOptionalNumber("stand-price-max");
-    const ratingMin = parseOptionalNumber("stand-rating-min");
-    const ratingMax = parseOptionalNumber("stand-rating-max");
-    const dialogMin = parseOptionalNumber("stand-dialog-min");
-    const dialogMax = parseOptionalNumber("stand-dialog-max");
-
-    const sbbFilter = getStandSbbCode();
-
     const filtered = stands.filter(stand => {
-        const standName = String(stand.name || "").toLowerCase();
-        const standCity = String(stand.city || "").toLowerCase();
-        const standKanton = String(stand.kanton || "").toLowerCase();
-        const standPrice = stand.price != null ? Number(stand.price) : null;
-        const standRating = stand.rating != null ? Number(stand.rating) : null;
-        const standDialog = stand.max_dialog != null ? Number(stand.max_dialog) : null;
-
-        const byName = !nameFilter || standName.includes(nameFilter);
-        const byCityKanton =
-            !cityKantonFilter ||
-            standCity.includes(cityKantonFilter) ||
-            standKanton.includes(cityKantonFilter);
-
-        const byPriceMin = priceMin == null || (standPrice != null && standPrice >= priceMin);
-        const byPriceMax = priceMax == null || (standPrice != null && standPrice <= priceMax);
-        const byRatingMin = ratingMin == null || (standRating != null && standRating >= ratingMin);
-        const byRatingMax = ratingMax == null || (standRating != null && standRating <= ratingMax);
-        const byDialogMin = dialogMin == null || (standDialog != null && standDialog >= dialogMin);
-        const byDialogMax = dialogMax == null || (standDialog != null && standDialog <= dialogMax);
-
-        let bySbb = true;
-        if (sbbFilter === "yes") {
-            bySbb = Boolean(stand.is_sbb);
-        } else if (sbbFilter === "no") {
-            bySbb = !Boolean(stand.is_sbb);
-        }
-
-        return (
-            byName &&
-            byCityKanton &&
-            byPriceMin &&
-            byPriceMax &&
-            byRatingMin &&
-            byRatingMax &&
-            byDialogMin &&
-            byDialogMax &&
-            bySbb
-        );
+        return matchesColumnFilters("stands", stand);
     });
 
     const sorted = [...filtered].sort((a, b) => compareValues(a[standSort.key], b[standSort.key], standSort.dir));
@@ -337,37 +687,6 @@ function findItemByName(items, typedName) {
     return (items || []).find(item => normalizeText(item.name) === target) || null;
 }
 
-function getBookingStatusCode() {
-    const raw = normalizeText(document.getElementById("booking-status")?.value || "");
-    if (!raw || raw === "alle") {
-        return "all";
-    }
-    if (raw === "bestaetigt") {
-        return "confirmed";
-    }
-    if (raw === "offen") {
-        return "open";
-    }
-    if (raw === "storniert") {
-        return "cancelled";
-    }
-    return "all";
-}
-
-function getStandSbbCode() {
-    const raw = normalizeText(document.getElementById("stand-sbb")?.value || "");
-    if (!raw || raw === "sbb: alle") {
-        return "all";
-    }
-    if (raw === "sbb: ja") {
-        return "yes";
-    }
-    if (raw === "sbb: nein") {
-        return "no";
-    }
-    return "all";
-}
-
 function cityExists(cityName) {
     const normalized = normalizeText(cityName);
     if (!normalized) {
@@ -389,6 +708,7 @@ function updateStandCityRequirement() {
     const container = kantonInput.closest(".form-field");
     if (container) {
         container.style.display = needsKanton ? "grid" : "none";
+        kantonInput.style.display = needsKanton ? "" : "none";
     } else {
         kantonInput.style.display = needsKanton ? "" : "none";
     }
@@ -437,6 +757,7 @@ async function loadMeta() {
     fillDatalist("new-booking-campaign-list", meta.campaigns || []);
     fillDatalist("new-booking-user-list", meta.users || []);
     fillDatalist("new-stand-user-list", meta.users || []);
+    initDashboardCampaignOptions();
 
     document.getElementById("new-booking-location").value = currentBookingLocation;
     document.getElementById("new-booking-campaign").value = currentBookingCampaign;
@@ -449,19 +770,7 @@ async function loadMeta() {
 }
 
 function getStandMonthQuery() {
-    const month = (document.getElementById("stand-limit-month")?.value || "").trim();
-    if (!month) {
-        return "";
-    }
-    return `?month=${encodeURIComponent(month)}`;
-}
-
-async function loadDashboardFromApi() {
-    const response = await fetch(`${API_BASE}/api/dashboard`);
-    if (!response.ok) {
-        throw new Error("Dashboard request failed");
-    }
-    renderDashboard(await response.json());
+    return "";
 }
 
 async function loadBookingsFromApi() {
@@ -470,7 +779,11 @@ async function loadBookingsFromApi() {
         throw new Error("Bookings request failed");
     }
     bookings = await response.json();
+    initDashboardYearOptions();
+    initDashboardMonthOptions();
+    initDashboardChartPeriodOptions();
     renderBookings();
+    renderDashboardFromBookings();
 }
 
 async function loadStandsFromApi() {
@@ -484,45 +797,34 @@ async function loadStandsFromApi() {
 
 async function loadFromApi() {
     await loadMeta();
-    await Promise.all([loadDashboardFromApi(), loadBookingsFromApi(), loadStandsFromApi()]);
-}
-
-function wireBookingFilters() {
-    const ids = ["booking-search", "booking-date-from", "booking-date-to", "booking-status"];
-    ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener("input", renderBookings);
-            el.addEventListener("change", renderBookings);
-        }
-    });
-}
-
-function wireStandFilters() {
-    const ids = [
-        "stand-name", "stand-city-kanton", "stand-price-min", "stand-price-max",
-        "stand-rating-min", "stand-rating-max", "stand-dialog-min", "stand-dialog-max", "stand-sbb"
-    ];
-
-    ids.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener("input", renderStands);
-            el.addEventListener("change", renderStands);
-        }
-    });
-
-    const month = document.getElementById("stand-limit-month");
-    if (month) {
-        month.addEventListener("change", () => {
-            loadStandsFromApi().catch(console.error);
-        });
-    }
+    await Promise.all([loadBookingsFromApi(), loadStandsFromApi()]);
 }
 
 function wireSorting() {
     const headers = Array.from(document.querySelectorAll("th.sortable"));
     headers.forEach(header => {
+        const filterBtn = document.createElement("button");
+        filterBtn.type = "button";
+        filterBtn.className = "col-filter-btn";
+        filterBtn.title = "Sortieren/Filtern";
+        filterBtn.textContent = "↕";
+        filterBtn.addEventListener("click", event => {
+            event.stopPropagation();
+            const label = (header.firstChild?.textContent || header.dataset.key || "").trim();
+            if (header.dataset.table === "bookings") {
+                bookingSort.key = "id";
+                bookingSort.dir = "desc";
+                renderBookings();
+            } else {
+                standSort.key = "id";
+                standSort.dir = "asc";
+                renderStands();
+            }
+            updateSortIndicators();
+            openColumnFilterPopover(header.dataset.table, header.dataset.key, label, filterBtn);
+        });
+        header.appendChild(filterBtn);
+
         header.addEventListener("click", () => {
             const table = header.dataset.table;
             const key = header.dataset.key;
@@ -548,6 +850,291 @@ function wireSorting() {
     updateSortIndicators();
 }
 
+function getColumnValue(table, key, item) {
+    if (table === "bookings" && key === "status") {
+        return item.cancelled ? "Storniert" : (item.confirmed ? "Bestaetigt" : "Offen");
+    }
+    if (table === "stands" && key === "is_sbb") {
+        return item.is_sbb ? "Ja" : "Nein";
+    }
+    const value = item[key];
+    if (value == null) {
+        return "";
+    }
+    return String(value);
+}
+
+function matchesColumnFilters(table, item) {
+    const filters = columnFilters[table] || {};
+    const entries = Object.entries(filters);
+    for (const [key, filterValue] of entries) {
+        if (filterValue && typeof filterValue === "object" && filterValue.type === "date_range") {
+            const value = getColumnValue(table, key, item);
+            if (filterValue.from && (!value || value < filterValue.from)) {
+                return false;
+            }
+            if (filterValue.to && (!value || value > filterValue.to)) {
+                return false;
+            }
+            continue;
+        }
+        const selectedValues = filterValue;
+        if (!Array.isArray(selectedValues) || selectedValues.length === 0) {
+            continue;
+        }
+        const value = getColumnValue(table, key, item);
+        if (!selectedValues.includes(value)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function getRowsByTable(table) {
+    return table === "bookings" ? bookings : stands;
+}
+
+function updateColumnFilterHits() {
+    const hits = document.getElementById("column-filter-hits");
+    const count = document.getElementById("column-filter-count");
+    const input = document.getElementById("column-filter-search");
+    const dateRange = document.getElementById("column-filter-date-range");
+    const dateFrom = document.getElementById("column-filter-date-from");
+    const dateTo = document.getElementById("column-filter-date-to");
+    const state = getActiveFilterState();
+    if (!hits || !count || !input || !dateRange || !dateFrom || !dateTo || !state || !activeColumnFilter) {
+        return;
+    }
+
+    if (activeColumnFilter.mode === "date_range") {
+        input.classList.add("hidden");
+        count.classList.add("hidden");
+        hits.classList.add("hidden");
+        dateRange.classList.remove("hidden");
+        hits.innerHTML = "";
+        return;
+    }
+
+    input.classList.remove("hidden");
+    count.classList.remove("hidden");
+    hits.classList.remove("hidden");
+    dateRange.classList.add("hidden");
+
+    const { table, key } = state;
+    const query = String(input.value || "").trim().toLowerCase();
+    const values = getRowsByTable(table).map(item => getColumnValue(table, key, item));
+    const uniqueValues = Array.from(new Set(values.filter(v => String(v).trim() !== "")));
+    const matches = query
+        ? uniqueValues.filter(v => v.toLowerCase().includes(query))
+        : uniqueValues;
+    const selected = activeColumnFilter.selected || new Set(uniqueValues);
+    const allSelected = selected.size >= uniqueValues.length;
+
+    count.textContent = `${matches.length} Treffer`;
+    const allRow = `
+        <label class="filter-popover-option">
+            <input type="checkbox" data-role="all" ${allSelected ? "checked" : ""}>
+            <span>Alle anzeigen</span>
+        </label>
+    `;
+    const rows = matches.slice(0, 100).map(v => `
+        <label class="filter-popover-option">
+            <input type="checkbox" data-role="value" data-value="${escapeHtml(v)}" ${selected.has(v) ? "checked" : ""}>
+            <span>${escapeHtml(v)}</span>
+        </label>
+    `).join("");
+    hits.innerHTML = allRow + (rows || `<div class="filter-popover-hit empty">Keine Treffer</div>`);
+
+    const allCheckbox = hits.querySelector('input[data-role="all"]');
+    if (allCheckbox) {
+        allCheckbox.addEventListener("change", () => {
+            if (!activeColumnFilter) {
+                return;
+            }
+            if (allCheckbox.checked) {
+                activeColumnFilter.selected = new Set(uniqueValues);
+            } else {
+                activeColumnFilter.selected = new Set();
+            }
+            applyLiveColumnFilter();
+            updateColumnFilterHits();
+        });
+    }
+
+    hits.querySelectorAll('input[data-role="value"]').forEach(box => {
+        box.addEventListener("change", () => {
+            if (!activeColumnFilter) {
+                return;
+            }
+            const rawValue = box.getAttribute("data-value") || "";
+            const value = rawValue
+                .replaceAll("&amp;", "&")
+                .replaceAll("&lt;", "<")
+                .replaceAll("&gt;", ">")
+                .replaceAll("&quot;", '"')
+                .replaceAll("&#39;", "'");
+            if (box.checked) {
+                activeColumnFilter.selected.add(value);
+            } else {
+                activeColumnFilter.selected.delete(value);
+            }
+            applyLiveColumnFilter();
+            updateColumnFilterHits();
+        });
+    });
+}
+
+function placeColumnFilterPopover() {
+    const popover = document.getElementById("column-filter-popover");
+    if (!popover || !activeColumnFilter?.trigger) {
+        return;
+    }
+
+    const rect = activeColumnFilter.trigger.getBoundingClientRect();
+    const top = rect.bottom + window.scrollY + 6;
+    const left = rect.left + window.scrollX;
+
+    popover.style.top = `${top}px`;
+    popover.style.left = `${left}px`;
+}
+
+function openColumnFilterPopover(table, key, label, trigger) {
+    const popover = document.getElementById("column-filter-popover");
+    const title = document.getElementById("column-filter-title");
+    const input = document.getElementById("column-filter-search");
+    if (!popover || !title || !input || !trigger) {
+        return;
+    }
+
+    const existing = columnFilters[table]?.[key];
+    if (isDateFilterColumn(table, key)) {
+        const from = existing && existing.type === "date_range" ? (existing.from || "") : "";
+        const to = existing && existing.type === "date_range" ? (existing.to || "") : "";
+        activeColumnFilter = { table, key, trigger, mode: "date_range", from, to };
+        const dateFrom = document.getElementById("column-filter-date-from");
+        const dateTo = document.getElementById("column-filter-date-to");
+        if (dateFrom) {
+            dateFrom.value = from;
+        }
+        if (dateTo) {
+            dateTo.value = to;
+        }
+    } else {
+        const allValues = Array.from(
+            new Set(getRowsByTable(table).map(item => getColumnValue(table, key, item)).filter(v => String(v).trim() !== ""))
+        );
+        const selected = Array.isArray(existing) && existing.length ? new Set(existing) : new Set(allValues);
+        activeColumnFilter = { table, key, trigger, mode: "value_list", allValues, selected };
+    }
+
+    title.textContent = `Filtern: ${label}`;
+    input.value = "";
+    popover.classList.remove("hidden");
+    placeColumnFilterPopover();
+    updateColumnFilterHits();
+    input.focus();
+    input.select();
+}
+
+function closeColumnFilterPopover() {
+    const popover = document.getElementById("column-filter-popover");
+    if (popover) {
+        popover.classList.add("hidden");
+    }
+    activeColumnFilter = null;
+}
+
+function applyLiveColumnFilter() {
+    const state = getActiveFilterState();
+    if (!state || !activeColumnFilter) {
+        return;
+    }
+
+    const { table, key } = state;
+    if (!columnFilters[table]) {
+        columnFilters[table] = {};
+    }
+
+    if (activeColumnFilter.mode === "date_range") {
+        const dateFrom = document.getElementById("column-filter-date-from");
+        const dateTo = document.getElementById("column-filter-date-to");
+        const from = String(dateFrom?.value || "").trim();
+        const to = String(dateTo?.value || "").trim();
+        activeColumnFilter.from = from;
+        activeColumnFilter.to = to;
+        if (!from && !to) {
+            delete columnFilters[table][key];
+        } else {
+            columnFilters[table][key] = { type: "date_range", from, to };
+        }
+    } else {
+        const selected = Array.from(activeColumnFilter.selected || []);
+        if (selected.length === 0 || selected.length >= (activeColumnFilter.allValues || []).length) {
+            delete columnFilters[table][key];
+        } else {
+            columnFilters[table][key] = selected;
+        }
+    }
+
+    if (table === "bookings") {
+        renderBookings();
+    } else {
+        renderStands();
+    }
+}
+
+function wireColumnFilterPopover() {
+    const input = document.getElementById("column-filter-search");
+    const popover = document.getElementById("column-filter-popover");
+    const dateFrom = document.getElementById("column-filter-date-from");
+    const dateTo = document.getElementById("column-filter-date-to");
+
+    if (input) {
+        input.addEventListener("input", () => {
+            updateColumnFilterHits();
+        });
+        input.addEventListener("keydown", event => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                closeColumnFilterPopover();
+            }
+        });
+    }
+
+    [dateFrom, dateTo].forEach(el => {
+        if (!el) {
+            return;
+        }
+        el.addEventListener("input", () => {
+            applyLiveColumnFilter();
+        });
+        el.addEventListener("change", () => {
+            applyLiveColumnFilter();
+        });
+    });
+
+    document.addEventListener("click", event => {
+        const target = event.target;
+        const isButton = target?.closest?.(".col-filter-btn");
+        const insidePopover = popover && popover.contains(target);
+        if (!insidePopover && !isButton) {
+            closeColumnFilterPopover();
+        }
+    });
+
+    window.addEventListener("resize", () => {
+        if (activeColumnFilter) {
+            placeColumnFilterPopover();
+        }
+    });
+
+    window.addEventListener("scroll", () => {
+        if (activeColumnFilter) {
+            placeColumnFilterPopover();
+        }
+    }, true);
+}
+
 function wireTabs() {
     const tabs = Array.from(document.querySelectorAll(".tab"));
     const views = Array.from(document.querySelectorAll(".tab-view"));
@@ -561,6 +1148,12 @@ function wireTabs() {
             const selected = document.getElementById(`tab-${tab.dataset.tab}`);
             if (selected) {
                 selected.classList.add("active");
+            }
+            closeColumnFilterPopover();
+            if (tab.dataset.tab === "dashboard") {
+                setTimeout(() => {
+                    renderDashboardCharts();
+                }, 0);
             }
         });
     });
@@ -623,7 +1216,7 @@ function wireCreateForms() {
                     throw new Error(err.error || "Buchung konnte nicht gespeichert werden");
                 }
 
-                await Promise.all([loadDashboardFromApi(), loadBookingsFromApi(), loadStandsFromApi()]);
+                await Promise.all([loadBookingsFromApi(), loadStandsFromApi()]);
                 closeBookingEditMode();
             } catch (error) {
                 bookingError.textContent = String(error.message || error);
@@ -700,19 +1293,59 @@ function wireCreateForms() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    const month = document.getElementById("stand-limit-month");
-    if (month) {
-        month.value = new Date().toISOString().slice(0, 7);
-    }
-
     setBookingFormMode(false);
     setStandFormMode(false);
+    installDashboardChartsFallback();
+    initDashboardYearOptions();
+    initDashboardMonthOptions();
 
     wireTabs();
-    wireBookingFilters();
-    wireStandFilters();
     wireSorting();
+    wireColumnFilterPopover();
     wireCreateForms();
+
+    const dashboardYear = document.getElementById("dashboard-year");
+    const dashboardMonth = document.getElementById("dashboard-month");
+    const dashboardCampaignYear = document.getElementById("dashboard-campaign-year");
+    const dashboardCampaignMonth = document.getElementById("dashboard-campaign-month");
+    if (dashboardYear) {
+        dashboardYear.addEventListener("change", () => {
+            initDashboardMonthOptions();
+            initDashboardChartPeriodOptions();
+            renderDashboardFromBookings();
+        });
+    }
+    if (dashboardMonth) {
+        dashboardMonth.addEventListener("change", () => {
+            renderDashboardFromBookings();
+        });
+    }
+    if (dashboardCampaignYear) {
+        dashboardCampaignYear.addEventListener("change", () => {
+            renderDashboardFromBookings();
+        });
+    }
+    if (dashboardCampaignMonth) {
+        dashboardCampaignMonth.addEventListener("change", () => {
+            renderDashboardFromBookings();
+        });
+    }
+    const dashboardChartPeriod = document.getElementById("dashboard-chart-period");
+    if (dashboardChartPeriod) {
+        dashboardChartPeriod.addEventListener("change", () => {
+            renderDashboardCharts();
+        });
+    }
+    const dashboardChartCampaign = document.getElementById("dashboard-chart-campaign");
+    if (dashboardChartCampaign) {
+        dashboardChartCampaign.addEventListener("change", () => {
+            renderDashboardCharts();
+        });
+    }
+
+    window.addEventListener("resize", () => {
+        renderDashboardCharts();
+    });
 
     loadFromApi().then(() => {
         applyDefaultBookingPriceFromLocation();

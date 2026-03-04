@@ -67,6 +67,45 @@ class BookingManager:
         
         return self.booking_dao.get_bookings_by_user_id(user_id)
 
+    def get_all_bookings(self) -> List[Booking]:
+        """
+        Holt alle Buchungen
+        """
+        return self.booking_dao.get_all_bookings()
+
+    def get_next_booking_id(self) -> int:
+        """
+        Liefert die naechste Booking-ID fuer die UI
+        """
+        return self.booking_dao.get_next_id("Bookings", "BookingID")
+
+    def update_booking_fields(
+        self,
+        booking_id: int,
+        date_of_event: date,
+        price: float,
+        confirmed: bool,
+        location_id: int,
+        cancelled: bool,
+        campaign_id: int,
+        user_id: int,
+    ) -> None:
+        """
+        Aktualisiert Buchungsfelder anhand der Booking-ID
+        """
+        if not booking_id or booking_id <= 0:
+            raise ValueError("Ungueltige Buchungs-ID")
+        self.booking_dao.update_booking_fields(
+            booking_id=booking_id,
+            date_of_event=date_of_event,
+            price=price,
+            confirmed=confirmed,
+            location_id=location_id,
+            cancelled=cancelled,
+            campaign_id=campaign_id,
+            user_id=user_id,
+        )
+
     def get_bookings_by_location(self, location_id: int) -> List[Booking]:
         """
         Holt alle Buchungen für einen Standort
@@ -315,4 +354,5 @@ class BookingManager:
         # Stornierung bis 24h vor Event möglich
         cancellation_deadline = event_date - timedelta(days=1)
         return date.today() <= cancellation_deadline
+
 

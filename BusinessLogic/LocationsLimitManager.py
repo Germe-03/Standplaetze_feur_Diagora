@@ -125,6 +125,33 @@ class LocationsLimitManager:
             return False
         return self.location_limit_dao.get_location_limit_by_id(location_limit_id) is not None
 
+    def upsert_location_limit(
+        self,
+        location_id: int,
+        valid_from: date,
+        user_id: int,
+        location_limit_yearly: int | None,
+        location_limit_monthly: int | None,
+        location_limit_campaign: int | None,
+    ) -> None:
+        """
+        Erstellt oder aktualisiert ein Standort-Limit fuer Standort+ValidFrom.
+        """
+        if not location_id or location_id <= 0:
+            raise ValueError("Ungueltige Location-ID")
+        if not user_id or user_id <= 0:
+            raise ValueError("Ungueltige User-ID")
+        if not valid_from:
+            raise ValueError("ValidFrom muss angegeben werden")
+
+        self.location_limit_dao.upsert_location_limit(
+            location_id=location_id,
+            valid_from=valid_from,
+            user_id=user_id,
+            location_limit_yearly=location_limit_yearly,
+            location_limit_monthly=location_limit_monthly,
+            location_limit_campaign=location_limit_campaign,
+        )
     def _validate_location_limit_data(
         self,
         location_limit_yearly: int,
@@ -147,3 +174,4 @@ class LocationsLimitManager:
         for value in (location_limit_yearly, location_limit_monthly, location_limit_campaign):
             if value is not None and value < 0:
                 raise ValueError("Limits dürfen nicht negativ sein")
+

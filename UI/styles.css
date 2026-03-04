@@ -183,6 +183,55 @@ button {
     gap: 0.8rem;
 }
 
+.dashboard-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1rem 0 0.75rem;
+}
+
+.dashboard-controls label {
+    display: inline-block;
+    font-size: 0.88rem;
+    color: var(--blue-900);
+    font-weight: 700;
+}
+
+.dashboard-controls select {
+    min-width: 200px;
+}
+
+.chart-grid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    margin-top: 0.6rem;
+}
+
+.dashboard-charts-panel {
+    margin-top: 1.4rem;
+}
+
+.chart-card {
+    background: #ffffff;
+    border: 1px solid #b9d3ee;
+    border-radius: 12px;
+    padding: 0.6rem;
+}
+
+.chart-card p {
+    margin: 0 0 0.35rem;
+    color: var(--blue-700);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.chart-canvas {
+    width: 100%;
+    height: 260px;
+    display: block;
+}
+
 .card {
     background: #f3f8ff;
     border: 1px solid #c8def5;
@@ -253,24 +302,121 @@ td {
 th.sortable {
     cursor: pointer;
     user-select: none;
+    position: relative;
+    white-space: nowrap;
 }
 
 th.sortable::after {
-    content: "  ⇅";
-    font-size: 0.8em;
-    opacity: 0.35;
+    content: "";
 }
 
 th.sortable[data-sort-dir="asc"]::after {
-    content: "  ↑";
-    opacity: 0.9;
+    content: "";
 }
 
 th.sortable[data-sort-dir="desc"]::after {
-    content: "  ↓";
-    opacity: 0.9;
+    content: "";
 }
 
+.col-filter-btn {
+    margin-left: 0.25rem;
+    padding: 0.08rem 0.34rem;
+    border-radius: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    min-width: 0;
+    color: var(--blue-900);
+    border: 1px solid #b8d3ef;
+    background: #eaf4ff;
+    box-shadow: none;
+}
+
+.filter-popover {
+    position: absolute;
+    z-index: 40;
+    width: 260px;
+    background: #f6fbff;
+    border: 1px solid #bdd7f4;
+    border-radius: 10px;
+    padding: 0.5rem;
+    box-shadow: 0 10px 24px rgba(10, 35, 68, 0.22);
+}
+
+.filter-popover-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--blue-900);
+    margin-bottom: 0.35rem;
+}
+
+.filter-popover #column-filter-search {
+    width: 100%;
+    padding: 0.45rem 0.55rem;
+    border-radius: 8px;
+    margin-bottom: 0.35rem;
+}
+
+.filter-date-range {
+    display: grid;
+    gap: 0.35rem;
+    margin-bottom: 0.35rem;
+}
+
+.filter-date-range.hidden {
+    display: none;
+}
+
+.filter-date-range label {
+    display: grid;
+    gap: 0.18rem;
+    font-size: 0.8rem;
+    color: var(--blue-800);
+}
+
+.filter-date-range input {
+    width: 100%;
+    padding: 0.42rem 0.5rem;
+    border-radius: 8px;
+}
+
+.filter-popover-count {
+    margin: 0 0 0.3rem;
+    color: var(--blue-700);
+    font-size: 0.78rem;
+}
+
+.filter-popover-hits {
+    max-height: 140px;
+    overflow: auto;
+    border-top: 1px solid #dbeafb;
+    padding-top: 0.2rem;
+}
+
+.filter-popover-option {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--blue-900);
+    padding: 0.2rem 0.1rem;
+}
+
+.filter-popover-option input {
+    width: auto;
+    margin: 0;
+}
+
+.filter-popover-hit {
+    font-size: 0.82rem;
+    color: var(--blue-900);
+    padding: 0.2rem 0.1rem;
+}
+
+.filter-popover-hit.empty {
+    color: var(--blue-700);
+    font-style: italic;
+}
 .stands-grid {
     display: grid;
     gap: 0.7rem;
@@ -331,6 +477,10 @@ select {
         grid-template-columns: repeat(2, minmax(120px, 1fr));
     }
 
+    .chart-grid {
+        grid-template-columns: 1fr;
+    }
+
     .stands-grid {
         grid-template-columns: repeat(2, minmax(120px, 1fr));
     }
@@ -362,3 +512,4 @@ select {
     width: auto;
     margin: 0;
 }
+

@@ -58,6 +58,11 @@ class CitiesManager:
 
         return self.cities_dao.get_cities_by_state_id(state_id)
 
+    def get_all_cities(self) -> List[City]:
+        """
+        Holt alle Staedte
+        """
+        return self.cities_dao.get_all_cities()
     def update_city(self, city: City) -> None:
         """
         Aktualisiert eine bestehende Stadt
@@ -155,3 +160,4 @@ class CitiesManager:
         # Längenvalidierung
         if len(name.strip()) < 2:
             raise ValueError("Stadtname muss mindestens 2 Zeichen lang sein")
+

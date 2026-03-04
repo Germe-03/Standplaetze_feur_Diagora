@@ -48,6 +48,47 @@ class LocationsManger:
             raise ValueError("Ungültige Location-ID")
         return self.locations_dao.get_location_by_id(location_id)
 
+    def get_all_locations(self) -> List[Location]:
+        """
+        Holt alle Standorte
+        """
+        return self.locations_dao.get_all_locations()
+
+    def get_next_location_id(self) -> int:
+        """
+        Liefert die naechste Standort-ID fuer die UI
+        """
+        return self.locations_dao.get_next_id("Locations", "LocationID")
+
+    def update_location_fields(
+        self,
+        location_id: int,
+        name: str,
+        is_sbb: bool,
+        max_dialog: int,
+        rating: int,
+        note: str | None,
+        price: float | None,
+        city_id: int,
+        user_id: int,
+    ) -> None:
+        """
+        Aktualisiert Standortfelder anhand der Standort-ID
+        """
+        if not location_id or location_id <= 0:
+            raise ValueError("Ungueltige Location-ID")
+        self.locations_dao.update_location_fields(
+            location_id=location_id,
+            name=name,
+            is_sbb=is_sbb,
+            max_dialog=max_dialog,
+            rating=rating,
+            note=note,
+            price=price,
+            city_id=city_id,
+            user_id=user_id,
+        )
+
     def get_locations_by_name(self, name: str) -> List[Location]:
         """
         Holt Standorte mit einem bestimmten Namen
@@ -195,3 +236,4 @@ class LocationsManger:
             raise ValueError("Stadt ist ein Pflichtfeld")
         if not user_id or user_id <= 0:
             raise ValueError("Benutzer ist ein Pflichtfeld")
+

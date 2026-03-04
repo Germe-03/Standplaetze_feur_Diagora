@@ -145,6 +145,39 @@ class BookingDataAccess(BaseDataAccess):
         self.execute(sql, (booking.date_of_event, booking.price, booking.confirmed, booking.location_id, 
                           booking.cancelled, booking.campaign_id, booking.user_id, current_date, booking.booking_id))
 
+    def update_booking_fields(
+        self,
+        booking_id: int,
+        date_of_event: date,
+        price: float,
+        confirmed: bool,
+        location_id: int,
+        cancelled: bool,
+        campaign_id: int,
+        user_id: int,
+    ) -> None:
+        current_date = date.today()
+        sql = """
+        UPDATE Bookings
+        SET DateOfEvent = ?, DateOfLastUpdate = ?, Price = ?, Confirmed = ?,
+            LocationID = ?, Cancelled = ?, CampaignID = ?, UserID = ?
+        WHERE BookingID = ?
+        """
+        self.execute(
+            sql,
+            (
+                date_of_event,
+                current_date,
+                price,
+                confirmed,
+                location_id,
+                cancelled,
+                campaign_id,
+                user_id,
+                booking_id,
+            ),
+        )
+
     def delete_booking(self, booking_id: int) -> None:
         sql = "DELETE FROM Bookings WHERE BookingID = ?"
         self.execute(sql, (booking_id,))

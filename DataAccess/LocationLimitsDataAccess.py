@@ -86,3 +86,54 @@ class LocationLimitsDataAccess(BaseDataAccess):
     def delete_location_limit(self, location_limit_id: int) -> None:
         sql = "DELETE FROM LocationLimits WHERE LocationLimitID = ?"
         self.execute(sql, (location_limit_id,))
+
+    def upsert_location_limit(
+        self,
+        location_id: int,
+        valid_from: date,
+        user_id: int,
+        location_limit_yearly: int | None,
+        location_limit_monthly: int | None,
+        location_limit_campaign: int | None,
+    ) -> None:
+        sql_find = """
+        select LocationLimitID
+        from LocationLimits
+        where LocationID = ? and ValidFrom = ?
+        """
+        row = self.fetchone(sql_find, (location_id, valid_from))
+        if row:
+            sql_update = """
+            update LocationLimits
+            set LocationLimitYearly = ?, LocationLimitMonthly = ?, LocationLimitCampaign = ?, UserID = ?
+            where LocationLimitID = ?
+            """
+            self.execute(
+                sql_update,
+                (
+                    location_limit_yearly,
+                    location_limit_monthly,
+                    location_limit_campaign,
+                    user_id,
+                    int(row[0]),
+                ),
+            )
+            return
+
+        sql_insert = """
+        insert into LocationLimits (
+            LocationLimitYearly, LocationLimitMonthly, LocationLimitCampaign, LocationID, ValidFrom, UserID
+        )
+        values (?, ?, ?, ?, ?, ?)
+        """
+        self.execute(
+            sql_insert,
+            (
+                location_limit_yearly,
+                location_limit_monthly,
+                location_limit_campaign,
+                location_id,
+                valid_from,
+                user_id,
+            ),
+        )
