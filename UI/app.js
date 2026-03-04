@@ -16,6 +16,9 @@ let standEditId = null;
 let nextBookingId = null;
 let nextStandId = null;
 let activeColumnFilter = null;
+let calendarViewMode = "month";
+let calendarAnchorDate = new Date();
+let calendarItemsByDate = {};
 
 function getActiveFilterState() {
     if (!activeColumnFilter) {
@@ -111,6 +114,7 @@ function closeBookingEditMode() {
     if (form) {
         form.reset();
     }
+    updateBookingCampaignCreateBox();
     setBookingFormMode(false);
     applyDefaultBookingPriceFromLocation();
 }
@@ -293,6 +297,366 @@ function getDaysInMonth(year, month) {
     return new Date(year, month, 0).getDate();
 }
 
+function toIsoDate(value) {
+    const d = new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+function addDays(value, amount) {
+    const d = new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    d.setDate(d.getDate() + amount);
+    return d;
+}
+
+function addMonths(value, amount) {
+    return new Date(value.getFullYear(), value.getMonth() + amount, 1);
+}
+
+function startOfWeek(value) {
+    const d = new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    const day = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - day);
+    return d;
+}
+
+function sameDate(a, b) {
+    return a.getFullYear() === b.getFullYear()
+        && a.getMonth() === b.getMonth()
+        && a.getDate() === b.getDate();
+}
+
+function formatDateLabel(value) {
+    const dd = String(value.getDate()).padStart(2, "0");
+    const mm = String(value.getMonth() + 1).padStart(2, "0");
+    const yyyy = value.getFullYear();
+    return `${dd}.${mm}.${yyyy}`;
+}
+
+function getCalendarMonthNames() {
+    return [
+        "Januar", "Februar", "Maerz", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember"
+    ];
+}
+
+function getCalendarWeekdayNames() {
+    return ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+}
+
+function getIsoWeekNumber(value) {
+    const d = new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function getCalendarTitle() {
+    const monthNames = getCalendarMonthNames();
+    if (calendarViewMode === "month") {
+        return `${monthNames[calendarAnchorDate.getMonth()]} ${calendarAnchorDate.getFullYear()}`;
+    }
+
+    const weekStart = startOfWeek(calendarAnchorDate);
+    const weekEnd = addDays(weekStart, calendarViewMode === "workweek" ? 4 : 6);
+    const weekNumber = getIsoWeekNumber(weekStart);
+    return `Woche ${weekNumber}: ${formatDateLabel(weekStart)} - ${formatDateLabel(weekEnd)}`;
+}
+
+function groupBookingsByDate() {
+    const grouped = {};
+    (bookings || []).forEach(item => {
+        if (Boolean(item.cancelled)) {
+            return;
+        }
+        const iso = String(item.date || "").trim();
+        if (!iso) {
+            return;
+        }
+        if (!grouped[iso]) {
+            grouped[iso] = [];
+        }
+        grouped[iso].push(item);
+    });
+    Object.keys(grouped).forEach(key => {
+        grouped[key].sort((a, b) => String(a.stand || "").localeCompare(String(b.stand || ""), "de", { sensitivity: "base" }));
+    });
+    return grouped;
+}
+
+function getCalendarEventLabel(item) {
+    const stand = String(item?.stand || "-");
+    const city = String(item?.city || "-");
+    const campaign = String(item?.campaign || "-");
+    return `${stand} | ${city} | ${campaign}`;
+}
+
+function getCalendarEventClass(item) {
+    const isConfirmed = Boolean(item?.confirmed);
+    if (isConfirmed) {
+        return "calendar-event-confirmed";
+    }
+
+    const rawDate = String(item?.date || "").trim();
+    if (!rawDate) {
+        return "calendar-event-unconfirmed";
+    }
+    const eventDate = new Date(`${rawDate}T00:00:00`);
+    if (Number.isNaN(eventDate.getTime())) {
+        return "calendar-event-unconfirmed";
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const diffDays = Math.floor((eventDate.getTime() - today.getTime()) / msPerDay);
+    const currentWeekStart = startOfWeek(today);
+    const currentWeekEnd = addDays(currentWeekStart, 6);
+
+    // Unbestaetigt innerhalb der aktuellen Woche (Mo-So) immer rot
+    if (eventDate >= currentWeekStart && eventDate <= currentWeekEnd) {
+        return "calendar-event-pending-this-week";
+    }
+
+    // Unbestaetigt und innerhalb der naechsten 7 Tage
+    if (diffDays >= 0 && diffDays <= 7) {
+        return "calendar-event-pending-soon";
+    }
+    // Unbestaetigt und in den letzten 14 Tagen
+    if (diffDays < 0 && diffDays >= -14) {
+        return "calendar-event-pending-recent";
+    }
+
+    return "calendar-event-unconfirmed";
+}
+
+function getCalendarEventHtml(item) {
+    const label = getCalendarEventLabel(item);
+    const bookingId = Number(item?.id);
+    const bookingAttr = Number.isFinite(bookingId) ? ` data-booking-id="${bookingId}"` : "";
+    const eventClass = getCalendarEventClass(item);
+    return `<div class="calendar-event ${eventClass}"${bookingAttr} title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
+}
+
+function buildCalendarDays() {
+    if (calendarViewMode === "month") {
+        const monthStart = new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth(), 1);
+        const firstGridDay = startOfWeek(monthStart);
+        return Array.from({ length: 42 }, (_, index) => addDays(firstGridDay, index));
+    }
+
+    const weekStart = startOfWeek(calendarAnchorDate);
+    const dayCount = calendarViewMode === "workweek" ? 5 : 7;
+    return Array.from({ length: dayCount }, (_, index) => addDays(weekStart, index));
+}
+
+function renderCalendarWeekdays(days) {
+    const container = document.getElementById("calendar-weekdays");
+    if (!container) {
+        return;
+    }
+
+    const weekdayNames = getCalendarWeekdayNames();
+    if (calendarViewMode === "month") {
+        container.style.gridTemplateColumns = "repeat(7, minmax(0, 1fr))";
+        container.innerHTML = weekdayNames
+            .map(name => `<div class="calendar-weekday">${name}</div>`)
+            .join("");
+        return;
+    }
+
+    const columns = days.length || 1;
+    container.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+    container.innerHTML = days.map(day => {
+        const dayIndex = (day.getDay() + 6) % 7;
+        return `<div class="calendar-weekday">${weekdayNames[dayIndex]} ${formatDateLabel(day)}</div>`;
+    }).join("");
+}
+
+function renderCalendarGrid() {
+    const title = document.getElementById("calendar-title");
+    const grid = document.getElementById("calendar-grid");
+    if (!title || !grid) {
+        return;
+    }
+    closeCalendarMorePopup();
+
+    title.textContent = getCalendarTitle();
+    const days = buildCalendarDays();
+    renderCalendarWeekdays(days);
+
+    const grouped = groupBookingsByDate();
+    calendarItemsByDate = {};
+    const today = new Date();
+    const activeMonth = calendarAnchorDate.getMonth();
+    const activeYear = calendarAnchorDate.getFullYear();
+    grid.classList.toggle("calendar-grid-month", calendarViewMode === "month");
+    grid.classList.toggle("calendar-grid-week", calendarViewMode !== "month");
+    grid.innerHTML = "";
+
+    days.forEach(day => {
+        const iso = toIsoDate(day);
+        const list = grouped[iso] || [];
+        const visibleItems = calendarViewMode === "month" ? list.slice(0, 2) : list;
+
+        const cell = document.createElement("article");
+        const inCurrentMonth = day.getMonth() === activeMonth && day.getFullYear() === activeYear;
+        cell.className = "calendar-cell";
+        if (!inCurrentMonth && calendarViewMode === "month") {
+            cell.classList.add("calendar-cell-muted");
+        }
+        if (sameDate(day, today)) {
+            cell.classList.add("calendar-cell-today");
+        }
+
+        const dayLabel = String(day.getDate());
+        const eventsHtml = visibleItems
+            .map(item => getCalendarEventHtml(item))
+            .join("");
+        const hiddenItems = list.slice(2);
+        const moreHtml = calendarViewMode === "month" && hiddenItems.length > 0
+            ? `<div class="calendar-event-more" data-calendar-more="${iso}">+${hiddenItems.length}</div>`
+            : "";
+        if (list.length > 0) {
+            calendarItemsByDate[iso] = list;
+        }
+
+        cell.innerHTML = `
+            <div class="calendar-cell-head">${dayLabel}</div>
+            <div class="calendar-events">${eventsHtml}${moreHtml}</div>
+        `;
+        grid.appendChild(cell);
+    });
+}
+
+function openCalendarMorePopup(isoDate) {
+    const popup = document.getElementById("calendar-more-popup");
+    const title = document.getElementById("calendar-more-popup-title");
+    const list = document.getElementById("calendar-more-popup-list");
+    if (!popup || !title || !list) {
+        return;
+    }
+
+    const items = calendarItemsByDate[isoDate] || [];
+    const [y, m, d] = String(isoDate || "").split("-");
+    if (!y || !m || !d) {
+        return;
+    }
+
+    title.textContent = `Weitere Standplaetze am ${d}.${m}.${y}`;
+    list.innerHTML = items.length
+        ? items.map(item => getCalendarEventHtml(item)).join("")
+        : "<p>Keine weiteren Eintraege.</p>";
+    popup.classList.remove("hidden");
+}
+
+function closeCalendarMorePopup() {
+    const popup = document.getElementById("calendar-more-popup");
+    if (popup) {
+        popup.classList.add("hidden");
+    }
+}
+
+function navigateCalendar(step) {
+    if (calendarViewMode === "month") {
+        calendarAnchorDate = addMonths(calendarAnchorDate, step);
+    } else {
+        calendarAnchorDate = addDays(calendarAnchorDate, step * 7);
+    }
+    renderCalendarGrid();
+}
+
+function wireCalendarControls() {
+    const modeSelect = document.getElementById("calendar-view-mode");
+    const prevBtn = document.getElementById("calendar-prev-btn");
+    const nextBtn = document.getElementById("calendar-next-btn");
+    const todayBtn = document.getElementById("calendar-today-btn");
+
+    if (modeSelect) {
+        modeSelect.value = calendarViewMode;
+        modeSelect.addEventListener("change", () => {
+            const nextMode = String(modeSelect.value || "month");
+            calendarViewMode = nextMode === "week" || nextMode === "workweek" ? nextMode : "month";
+            renderCalendarGrid();
+        });
+    }
+    if (prevBtn) {
+        prevBtn.addEventListener("click", () => navigateCalendar(-1));
+    }
+    if (nextBtn) {
+        nextBtn.addEventListener("click", () => navigateCalendar(1));
+    }
+    if (todayBtn) {
+        todayBtn.addEventListener("click", () => {
+            calendarAnchorDate = new Date();
+            renderCalendarGrid();
+        });
+    }
+
+    const grid = document.getElementById("calendar-grid");
+    if (grid) {
+        grid.addEventListener("click", event => {
+            const target = event.target;
+            const moreBtn = target?.closest?.("[data-calendar-more]");
+            if (!moreBtn) {
+                return;
+            }
+
+            const key = String(moreBtn.getAttribute("data-calendar-more") || "");
+            if (!key) {
+                return;
+            }
+            openCalendarMorePopup(key);
+            event.preventDefault();
+        });
+        grid.addEventListener("dblclick", event => {
+            const target = event.target;
+            const eventNode = target?.closest?.("[data-booking-id]");
+            if (!eventNode) {
+                return;
+            }
+            const bookingId = Number(eventNode.getAttribute("data-booking-id"));
+            if (!Number.isFinite(bookingId) || bookingId <= 0) {
+                return;
+            }
+            closeCalendarMorePopup();
+            jumpToBookingFromCalendar(bookingId);
+            event.preventDefault();
+        });
+    }
+
+    const popupCloseBtn = document.getElementById("calendar-more-popup-close");
+    if (popupCloseBtn) {
+        popupCloseBtn.addEventListener("click", () => {
+            closeCalendarMorePopup();
+        });
+    }
+    const popup = document.getElementById("calendar-more-popup");
+    if (popup) {
+        popup.addEventListener("click", event => {
+            if (event.target === popup) {
+                closeCalendarMorePopup();
+            }
+        });
+        popup.addEventListener("dblclick", event => {
+            const target = event.target;
+            const eventNode = target?.closest?.("[data-booking-id]");
+            if (!eventNode) {
+                return;
+            }
+            const bookingId = Number(eventNode.getAttribute("data-booking-id"));
+            if (!Number.isFinite(bookingId) || bookingId <= 0) {
+                return;
+            }
+            closeCalendarMorePopup();
+            jumpToBookingFromCalendar(bookingId);
+            event.preventDefault();
+        });
+    }
+}
+
 function drawChartFallbackMessage(canvasId, message) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) {
@@ -409,6 +773,9 @@ function installDashboardChartsFallback() {
         },
         renderCostChart(canvasId, labels, values) {
             renderSimpleLine(canvasId, labels, values, "#3b8db6", true);
+        },
+        renderBudgetPieChart(canvasId) {
+            drawChartFallbackMessage(canvasId, "Kreisdiagramm nicht verfuegbar.");
         }
     };
 }
@@ -418,6 +785,7 @@ function renderDashboardCharts() {
     if (!window.DashboardCharts) {
         drawChartFallbackMessage("dashboard-chart-bookings", "Diagramm nicht geladen (charts.js fehlt).");
         drawChartFallbackMessage("dashboard-chart-costs", "Diagramm nicht geladen (charts.js fehlt).");
+        drawChartFallbackMessage("dashboard-chart-budget", "Diagramm nicht geladen (charts.js fehlt).");
         return;
     }
     const yearSelect = document.getElementById("dashboard-year");
@@ -428,8 +796,19 @@ function renderDashboardCharts() {
     const selectedPeriod = String(periodSelect?.value || "year");
     const selectedCampaign = String(campaignSelect?.value || "").trim();
 
-    const filtered = bookings.filter(item => {
-        if (Boolean(item.cancelled) || !Boolean(item.confirmed)) {
+    const yearScoped = bookings.filter(item => {
+        if (Boolean(item.cancelled)) {
+            return false;
+        }
+        if (selectedCampaign && String(item.campaign_id ?? "") !== selectedCampaign) {
+            return false;
+        }
+        const d = String(item.date || "");
+        return d.startsWith(`${selectedYear}-`);
+    });
+
+    const scoped = yearScoped.filter(item => {
+        if (Boolean(item.cancelled)) {
             return false;
         }
         if (selectedCampaign && String(item.campaign_id ?? "") !== selectedCampaign) {
@@ -444,6 +823,7 @@ function renderDashboardCharts() {
         }
         return true;
     });
+    const filtered = scoped.filter(item => Boolean(item.confirmed));
 
     let labels = [];
     let countValues = [];
@@ -484,6 +864,13 @@ function renderDashboardCharts() {
         drawChartFallbackMessage("dashboard-chart-bookings", "Diagramm konnte nicht gezeichnet werden.");
         drawChartFallbackMessage("dashboard-chart-costs", "Diagramm konnte nicht gezeichnet werden.");
     }
+
+    try {
+        renderBudgetPieChartForSelection(selectedYear, selectedCampaign, yearScoped);
+    } catch (error) {
+        console.error("Budget pie rendering failed", error);
+        drawChartFallbackMessage("dashboard-chart-budget", "Diagramm konnte nicht gezeichnet werden.");
+    }
 }
 
 function computeMetricsForPeriod(items) {
@@ -493,6 +880,43 @@ function computeMetricsForPeriod(items) {
     const open = safe.filter(item => !Boolean(item.confirmed)).length;
     const revenue = safe.reduce((sum, item) => sum + Number(item.price || 0), 0);
     return { total, confirmed, open, revenue };
+}
+
+function computeBudgetBreakdown(items, totalBudget) {
+    const safe = (items || []).filter(item => !Boolean(item.cancelled));
+    const confirmedCosts = safe
+        .filter(item => Boolean(item.confirmed))
+        .reduce((sum, item) => sum + Number(item.price || 0), 0);
+    const openCosts = safe
+        .filter(item => !Boolean(item.confirmed))
+        .reduce((sum, item) => sum + Number(item.price || 0), 0);
+    const remaining = Math.max(Number(totalBudget || 0) - confirmedCosts - openCosts, 0);
+    return { confirmedCosts, openCosts, remaining };
+}
+
+function getBudgetForScope(selectedYear, selectedCampaignId) {
+    const campaigns = meta.campaigns || [];
+    if (selectedCampaignId) {
+        const selected = campaigns.find(c => String(c.id) === String(selectedCampaignId));
+        return selected ? Number(selected.budget || 0) : 0;
+    }
+    return campaigns
+        .filter(c => Number(c.year) === Number(selectedYear))
+        .reduce((sum, c) => sum + Number(c.budget || 0), 0);
+}
+
+function renderBudgetPieChartForSelection(selectedYear, selectedCampaignId, scopedBookings) {
+    if (!window.DashboardCharts || typeof window.DashboardCharts.renderBudgetPieChart !== "function") {
+        return;
+    }
+
+    const budget = getBudgetForScope(selectedYear, selectedCampaignId);
+    const breakdown = computeBudgetBreakdown(scopedBookings, budget);
+    window.DashboardCharts.renderBudgetPieChart("dashboard-chart-budget", [
+        { label: "Rot (Bestaetigt)", value: breakdown.confirmedCosts, color: "#d64555" },
+        { label: "Blau (Offen)", value: breakdown.openCosts, color: "#2d66a8" },
+        { label: "Gruen (Uebrig)", value: breakdown.remaining, color: "#2f9c63" }
+    ]);
 }
 
 function renderDashboardFromBookings() {
@@ -541,6 +965,48 @@ function renderDashboardFromBookings() {
     renderDashboardCharts();
 }
 
+function activateTab(tabName) {
+    const tabs = Array.from(document.querySelectorAll(".tab"));
+    const views = Array.from(document.querySelectorAll(".tab-view"));
+    tabs.forEach(item => item.classList.toggle("active", item.dataset.tab === tabName));
+    views.forEach(view => view.classList.remove("active"));
+    const selected = document.getElementById(`tab-${tabName}`);
+    if (selected) {
+        selected.classList.add("active");
+    }
+    closeColumnFilterPopover();
+    if (tabName === "dashboard") {
+        setTimeout(() => {
+            renderDashboardCharts();
+        }, 0);
+    }
+    if (tabName === "calendar") {
+        setTimeout(() => {
+            renderCalendarGrid();
+        }, 0);
+    }
+}
+
+function jumpToBookingFromCalendar(bookingId) {
+    const id = Number(bookingId);
+    if (!Number.isFinite(id) || id <= 0) {
+        return;
+    }
+    activateTab("bookings");
+    startBookingEdit(id);
+    setTimeout(() => {
+        const row = document.querySelector(`[data-booking-row-id="${id}"]`);
+        if (!row) {
+            return;
+        }
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("booking-row-focus");
+        window.setTimeout(() => {
+            row.classList.remove("booking-row-focus");
+        }, 1500);
+    }, 0);
+}
+
 function startBookingEdit(bookingId) {
     const booking = bookings.find(item => Number(item.id) === Number(bookingId));
     if (!booking) {
@@ -559,6 +1025,7 @@ function startBookingEdit(bookingId) {
     document.getElementById("new-booking-cancelled").checked = Boolean(booking.cancelled);
 
     setBookingFormMode(true);
+    updateBookingCampaignCreateBox();
 }
 
 function startStandEdit(standId) {
@@ -605,6 +1072,7 @@ function renderBookings() {
 
     sorted.forEach(booking => {
         const tr = document.createElement("tr");
+        tr.setAttribute("data-booking-row-id", String(booking.id));
         tr.style.cursor = "pointer";
         tr.title = "Doppelklick zum Bearbeiten";
         const statusText = booking.cancelled ? "Storniert" : (booking.confirmed ? "Bestaetigt" : "Offen");
@@ -671,6 +1139,15 @@ function fillDatalist(listId, items) {
     items.forEach(item => {
         const option = document.createElement("option");
         option.value = item.name;
+        if (listId === "new-booking-location-list") {
+            const city = String(item.city || "").trim();
+            if (city) {
+                const visibleText = `${item.name} (${city})`;
+                option.value = visibleText;
+                option.label = visibleText;
+                option.textContent = visibleText;
+            }
+        }
         list.appendChild(option);
     });
 }
@@ -685,6 +1162,33 @@ function findItemByName(items, typedName) {
         return null;
     }
     return (items || []).find(item => normalizeText(item.name) === target) || null;
+}
+
+function findLocationByInputValue(typedValue) {
+    const raw = String(typedValue || "").trim();
+    if (!raw) {
+        return null;
+    }
+
+    const direct = findItemByName(meta.locations || [], raw);
+    if (direct) {
+        return direct;
+    }
+
+    const match = raw.match(/^(.*)\s+\((.*)\)$/);
+    if (!match) {
+        return null;
+    }
+    const namePart = String(match[1] || "").trim();
+    const cityPart = String(match[2] || "").trim();
+    if (!namePart) {
+        return null;
+    }
+
+    return (meta.locations || []).find(item =>
+        normalizeText(item.name) === normalizeText(namePart)
+        && normalizeText(item.city || "") === normalizeText(cityPart)
+    ) || null;
 }
 
 function cityExists(cityName) {
@@ -724,10 +1228,14 @@ function applyDefaultBookingPriceFromLocation() {
         return;
     }
 
-    const selectedLocation = findItemByName(meta.locations || [], locationInput.value);
+    const selectedLocation = findLocationByInputValue(locationInput.value);
     if (!selectedLocation) {
         priceInput.value = "0.00";
         return;
+    }
+
+    if (locationInput.value !== selectedLocation.name) {
+        locationInput.value = selectedLocation.name;
     }
 
     if (selectedLocation.price == null) {
@@ -736,6 +1244,49 @@ function applyDefaultBookingPriceFromLocation() {
     }
 
     priceInput.value = Number(selectedLocation.price).toFixed(2);
+}
+
+function updateBookingCampaignCreateBox() {
+    const campaignInput = document.getElementById("new-booking-campaign");
+    const box = document.getElementById("booking-campaign-create-box");
+    const nameInput = document.getElementById("new-campaign-name");
+    const yearInput = document.getElementById("new-campaign-year");
+    const budgetInput = document.getElementById("new-campaign-budget");
+    const userInput = document.getElementById("new-campaign-user");
+    const saveMsg = document.getElementById("new-campaign-save-msg");
+    const bookingUserInput = document.getElementById("new-booking-user");
+    const bookingDateInput = document.getElementById("new-booking-date");
+    if (!campaignInput || !box || !nameInput || !yearInput || !budgetInput || !userInput) {
+        return;
+    }
+
+    const campaignName = String(campaignInput.value || "").trim();
+    const selectedCampaign = findItemByName(meta.campaigns || [], campaignName);
+    const shouldShow = campaignName !== "" && !selectedCampaign;
+    box.classList.toggle("hidden", !shouldShow);
+    nameInput.readOnly = shouldShow;
+
+    if (shouldShow) {
+        nameInput.value = campaignName;
+        if (!yearInput.value) {
+            const bookingDate = String(bookingDateInput?.value || "");
+            const y = bookingDate.length >= 4 ? Number(bookingDate.slice(0, 4)) : new Date().getFullYear();
+            yearInput.value = Number.isNaN(y) ? String(new Date().getFullYear()) : String(y);
+        }
+        if (!budgetInput.value) {
+            budgetInput.value = "0.00";
+        }
+        if (!userInput.value && bookingUserInput?.value) {
+            userInput.value = bookingUserInput.value;
+        }
+    } else {
+        yearInput.value = "";
+        budgetInput.value = "";
+        userInput.value = "";
+        if (saveMsg) {
+            saveMsg.textContent = "";
+        }
+    }
 }
 
 async function loadMeta() {
@@ -765,6 +1316,7 @@ async function loadMeta() {
     document.getElementById("new-stand-user").value = currentStandUser;
 
     updateStandCityRequirement();
+    updateBookingCampaignCreateBox();
     setBookingFormMode(bookingEditId != null);
     setStandFormMode(standEditId != null);
 }
@@ -784,6 +1336,7 @@ async function loadBookingsFromApi() {
     initDashboardChartPeriodOptions();
     renderBookings();
     renderDashboardFromBookings();
+    renderCalendarGrid();
 }
 
 async function loadStandsFromApi() {
@@ -1137,24 +1690,10 @@ function wireColumnFilterPopover() {
 
 function wireTabs() {
     const tabs = Array.from(document.querySelectorAll(".tab"));
-    const views = Array.from(document.querySelectorAll(".tab-view"));
 
     tabs.forEach(tab => {
         tab.addEventListener("click", () => {
-            tabs.forEach(item => item.classList.remove("active"));
-            tab.classList.add("active");
-
-            views.forEach(view => view.classList.remove("active"));
-            const selected = document.getElementById(`tab-${tab.dataset.tab}`);
-            if (selected) {
-                selected.classList.add("active");
-            }
-            closeColumnFilterPopover();
-            if (tab.dataset.tab === "dashboard") {
-                setTimeout(() => {
-                    renderDashboardCharts();
-                }, 0);
-            }
+            activateTab(tab.dataset.tab);
         });
     });
 }
@@ -1163,12 +1702,27 @@ function wireCreateForms() {
     const bookingForm = document.getElementById("booking-create-form");
     const bookingError = document.getElementById("booking-create-error");
     const bookingLocation = document.getElementById("new-booking-location");
+    const bookingCampaignInput = document.getElementById("new-booking-campaign");
+    const bookingDateInput = document.getElementById("new-booking-date");
+    const bookingUserInput = document.getElementById("new-booking-user");
     const bookingClose = document.getElementById("booking-close-btn");
+    const campaignSaveBtn = document.getElementById("new-campaign-save-btn");
+    const campaignSaveMsg = document.getElementById("new-campaign-save-msg");
 
     if (bookingLocation) {
         bookingLocation.addEventListener("change", () => {
             applyDefaultBookingPriceFromLocation();
         });
+    }
+
+    if (bookingCampaignInput) {
+        bookingCampaignInput.addEventListener("blur", updateBookingCampaignCreateBox);
+    }
+    if (bookingDateInput) {
+        bookingDateInput.addEventListener("change", updateBookingCampaignCreateBox);
+    }
+    if (bookingUserInput) {
+        bookingUserInput.addEventListener("change", updateBookingCampaignCreateBox);
     }
 
     if (bookingClose) {
@@ -1177,16 +1731,116 @@ function wireCreateForms() {
         });
     }
 
+    if (campaignSaveBtn) {
+        campaignSaveBtn.addEventListener("click", async () => {
+            if (campaignSaveMsg) {
+                campaignSaveMsg.textContent = "";
+            }
+
+            const campaignInputValue = String(document.getElementById("new-booking-campaign")?.value || "").trim();
+            const campaignYearRaw = String(document.getElementById("new-campaign-year")?.value || "").trim();
+            const campaignBudgetRaw = String(document.getElementById("new-campaign-budget")?.value || "").trim();
+            const campaignUserName = String(document.getElementById("new-campaign-user")?.value || "").trim();
+
+            if (!campaignInputValue) {
+                if (campaignSaveMsg) {
+                    campaignSaveMsg.textContent = "Bitte Kampagne eingeben.";
+                }
+                return;
+            }
+            if (findItemByName(meta.campaigns || [], campaignInputValue)) {
+                if (campaignSaveMsg) {
+                    campaignSaveMsg.textContent = "Kampagne existiert bereits.";
+                }
+                updateBookingCampaignCreateBox();
+                return;
+            }
+            if (!campaignYearRaw) {
+                if (campaignSaveMsg) {
+                    campaignSaveMsg.textContent = "Bitte Jahr fuer die neue Kampagne eingeben.";
+                }
+                return;
+            }
+            if (!campaignBudgetRaw) {
+                if (campaignSaveMsg) {
+                    campaignSaveMsg.textContent = "Bitte Budget fuer die neue Kampagne eingeben (0 erlaubt).";
+                }
+                return;
+            }
+
+            const campaignUser = findItemByName(meta.users || [], campaignUserName);
+            if (!campaignUser) {
+                if (campaignSaveMsg) {
+                    campaignSaveMsg.textContent = "Bitte Kampagnen-Benutzer aus der Vorschlagsliste waehlen.";
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/campaigns`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        name: campaignInputValue,
+                        year: Number(campaignYearRaw),
+                        budget: Number(campaignBudgetRaw),
+                        user_id: campaignUser.id
+                    })
+                });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.error || "Kampagne konnte nicht gespeichert werden");
+                }
+
+                const result = await response.json().catch(() => ({}));
+                const savedName = String(result.name || campaignInputValue).trim();
+                const savedId = Number(result.id);
+                if (!findItemByName(meta.campaigns || [], savedName)) {
+                    meta.campaigns.push({
+                        id: Number.isFinite(savedId) ? savedId : null,
+                        name: savedName
+                    });
+                }
+                fillDatalist("new-booking-campaign-list", meta.campaigns || []);
+                const campaignInput = document.getElementById("new-booking-campaign");
+                if (campaignInput) {
+                    campaignInput.value = savedName;
+                }
+                updateBookingCampaignCreateBox();
+                if (campaignSaveMsg) {
+                    campaignSaveMsg.textContent = "Kampagne gespeichert.";
+                }
+            } catch (error) {
+                if (campaignSaveMsg) {
+                    campaignSaveMsg.textContent = String(error.message || error);
+                }
+            }
+        });
+    }
+
     if (bookingForm) {
         bookingForm.addEventListener("submit", async event => {
             event.preventDefault();
             bookingError.textContent = "";
 
-            const selectedLocation = findItemByName(meta.locations || [], document.getElementById("new-booking-location")?.value || "");
+            const selectedLocation = findLocationByInputValue(document.getElementById("new-booking-location")?.value || "");
             const selectedCampaign = findItemByName(meta.campaigns || [], document.getElementById("new-booking-campaign")?.value || "");
             const selectedUser = findItemByName(meta.users || [], document.getElementById("new-booking-user")?.value || "");
-            if (!selectedLocation || !selectedCampaign || !selectedUser) {
-                bookingError.textContent = "Bitte Standplatz, Kampagne und Benutzer aus der Vorschlagsliste waehlen.";
+            const missingRefs = [];
+            if (!selectedLocation) {
+                missingRefs.push("Standplatz");
+            }
+            if (!selectedUser) {
+                missingRefs.push("Benutzer");
+            }
+            if (missingRefs.length > 0) {
+                bookingError.textContent = `Bitte ${missingRefs.join(" und ")} aus der Vorschlagsliste waehlen.`;
+                return;
+            }
+
+            const campaignInputValue = String(document.getElementById("new-booking-campaign")?.value || "").trim();
+            if (!campaignInputValue) {
+                bookingError.textContent = "Bitte Kampagne eingeben.";
                 return;
             }
 
@@ -1194,11 +1848,43 @@ function wireCreateForms() {
                 date_of_event: document.getElementById("new-booking-date")?.value || "",
                 price: document.getElementById("new-booking-price")?.value || "",
                 location_id: selectedLocation.id,
-                campaign_id: selectedCampaign.id,
                 user_id: selectedUser.id,
                 confirmed: Boolean(document.getElementById("new-booking-confirmed")?.checked),
                 cancelled: Boolean(document.getElementById("new-booking-cancelled")?.checked)
             };
+            if (selectedCampaign) {
+                payload.campaign_id = selectedCampaign.id;
+            } else {
+                const campaignName = campaignInputValue;
+                const campaignYearRaw = String(document.getElementById("new-campaign-year")?.value || "").trim();
+                const campaignBudgetRaw = String(document.getElementById("new-campaign-budget")?.value || "").trim();
+                const campaignUserName = String(document.getElementById("new-campaign-user")?.value || "").trim();
+
+                if (!campaignName) {
+                    bookingError.textContent = "Bitte Namen fuer die neue Kampagne eingeben.";
+                    return;
+                }
+                if (!campaignYearRaw) {
+                    bookingError.textContent = "Bitte Jahr fuer die neue Kampagne eingeben.";
+                    return;
+                }
+                if (!campaignBudgetRaw) {
+                    bookingError.textContent = "Bitte Budget fuer die neue Kampagne eingeben (0 erlaubt).";
+                    return;
+                }
+
+                const campaignUser = findItemByName(meta.users || [], campaignUserName);
+                if (!campaignUser) {
+                    bookingError.textContent = "Bitte Kampagnen-Benutzer aus der Vorschlagsliste waehlen.";
+                    return;
+                }
+
+                payload.campaign_name = campaignName;
+                payload.create_campaign_if_missing = true;
+                payload.campaign_year = Number(campaignYearRaw);
+                payload.campaign_budget = Number(campaignBudgetRaw);
+                payload.campaign_user_id = campaignUser.id;
+            }
 
             const isEdit = bookingEditId != null;
             const method = isEdit ? "PUT" : "POST";
@@ -1302,6 +1988,7 @@ document.addEventListener("DOMContentLoaded", () => {
     wireTabs();
     wireSorting();
     wireColumnFilterPopover();
+    wireCalendarControls();
     wireCreateForms();
 
     const dashboardYear = document.getElementById("dashboard-year");

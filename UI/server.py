@@ -90,6 +90,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             if path == "/api/bookings":
                 self._send_json(APP_MANAGER.create_booking(payload), status=201)
                 return
+            if path == "/api/campaigns":
+                self._send_json(APP_MANAGER.create_campaign(payload), status=201)
+                return
             if path == "/api/stands":
                 self._send_json(APP_MANAGER.create_stand(payload), status=201)
                 return

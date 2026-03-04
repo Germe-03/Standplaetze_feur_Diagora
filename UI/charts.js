@@ -123,6 +123,80 @@
         drawLine(ctx, points, options.color || "#2f6fb0");
     }
 
+    function renderPieChart(canvasId, segments) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            return;
+        }
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(320, Math.floor(rect.width || canvas.clientWidth || 640));
+        const height = Math.max(220, Math.floor(rect.height || canvas.clientHeight || 260));
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        clearCanvas(ctx, width, height);
+
+        const safe = (segments || []).map(item => ({
+            label: String(item.label || ""),
+            value: Math.max(0, Number(item.value || 0)),
+            color: String(item.color || "#cccccc")
+        }));
+        const total = safe.reduce((sum, item) => sum + item.value, 0);
+        const cx = Math.floor(width * 0.32);
+        const cy = Math.floor(height * 0.5);
+        const radius = Math.floor(Math.min(width, height) * 0.28);
+
+        if (total <= 0) {
+            ctx.fillStyle = "#f3f8ff";
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#c8def5";
+            ctx.stroke();
+        } else {
+            let start = -Math.PI / 2;
+            safe.forEach(item => {
+                const angle = (item.value / total) * Math.PI * 2;
+                if (angle <= 0) {
+                    return;
+                }
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, radius, start, start + angle);
+                ctx.closePath();
+                ctx.fillStyle = item.color;
+                ctx.fill();
+                start += angle;
+            });
+        }
+
+        ctx.fillStyle = "#233f63";
+        ctx.font = "700 12px Manrope, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(formatChf(total), cx, cy);
+
+        const legendX = Math.floor(width * 0.58);
+        let legendY = Math.floor(height * 0.28);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+        ctx.font = "12px Manrope, sans-serif";
+        safe.forEach(item => {
+            ctx.fillStyle = item.color;
+            ctx.fillRect(legendX, legendY - 10, 12, 12);
+            ctx.fillStyle = "#2d4d73";
+            ctx.fillText(`${item.label}: ${formatChf(item.value)}`, legendX + 18, legendY);
+            legendY += 22;
+        });
+    }
+
     window.DashboardCharts = {
         renderCountChart(canvasId, labels, values) {
             renderLineChart(canvasId, labels, values, {
@@ -135,6 +209,9 @@
                 formatValue: v => formatChf(v),
                 color: "#3a8db8"
             });
+        },
+        renderBudgetPieChart(canvasId, segments) {
+            renderPieChart(canvasId, segments);
         }
     };
 })();

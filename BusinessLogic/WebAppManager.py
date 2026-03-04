@@ -43,6 +43,44 @@ class WebAppManager:
             return None
         return int(value)
 
+    def _resolve_campaign_id(
+        self,
+        payload: dict,
+        fallback_user_id: int,
+        fallback_event_date: date,
+    ) -> int:
+        campaign_id_raw = payload.get("campaign_id")
+        if campaign_id_raw not in (None, ""):
+            return int(campaign_id_raw)
+
+        campaign_name = str(payload.get("campaign_name") or "").strip()
+        if not campaign_name:
+            raise ValueError("Missing fields: campaign_id")
+
+        create_if_missing = self._to_bool(payload.get("create_campaign_if_missing"), default=False)
+        campaign_year = self._to_optional_int(payload.get("campaign_year")) or fallback_event_date.year
+        campaign_user_id = self._to_optional_int(payload.get("campaign_user_id")) or fallback_user_id
+        campaign_budget_raw = payload.get("campaign_budget")
+        campaign_budget = float(campaign_budget_raw) if campaign_budget_raw not in (None, "") else 0.0
+
+        campaigns = self.campaign_manager.get_campaigns_by_name(campaign_name)
+        for campaign in campaigns:
+            if int(campaign.year) == int(campaign_year):
+                return campaign.campaign_id
+        if campaigns and not create_if_missing:
+            return campaigns[0].campaign_id
+
+        if not create_if_missing:
+            raise ValueError("Kampagne nicht gefunden.")
+
+        new_campaign = self.campaign_manager.create_campaign(
+            name=campaign_name,
+            year=int(campaign_year),
+            budget=campaign_budget,
+            user_id=int(campaign_user_id),
+        )
+        return new_campaign.campaign_id
+
     def _resolve_city_id(self, payload: dict) -> int:
         city_id_raw = payload.get("city_id")
         city_name = str(payload.get("city_name") or "").strip()
@@ -168,27 +206,38 @@ class WebAppManager:
 
     def get_meta(self) -> dict:
         locations = self.locations_manager.get_all_locations()
-        campaigns = self.campaign_manager.get_campaigns_by_year(date.today().year)
-        if not campaigns:
-            campaigns = []
-            seen_campaigns = set()
-            for booking in self.booking_manager.get_all_bookings():
-                campaign = self.campaign_manager.get_campaign_by_id(booking.campaign_id)
-                if campaign and campaign.campaign_id not in seen_campaigns:
-                    campaigns.append(campaign)
-                    seen_campaigns.add(campaign.campaign_id)
+        campaigns = self.campaign_manager.get_campaigns_by_year(date.today().year) or []
+        seen_campaigns = {c.campaign_id for c in campaigns}
+        for booking in self.booking_manager.get_all_bookings():
+            campaign = self.campaign_manager.get_campaign_by_id(booking.campaign_id)
+            if campaign and campaign.campaign_id not in seen_campaigns:
+                campaigns.append(campaign)
+                seen_campaigns.add(campaign.campaign_id)
         cities = self.cities_manager.get_all_cities()
         users = self.user_manager.get_all_users()
-        return {
-            "locations": [
+        location_payload = []
+        for location in locations:
+            city = self.cities_manager.get_city_by_id(location.city_id)
+            location_payload.append(
                 {
-                    "id": l.location_id,
-                    "name": l.name,
-                    "price": float(l.price) if l.price is not None else None,
+                    "id": location.location_id,
+                    "name": location.name,
+                    "city": city.name if city else "",
+                    "price": float(location.price) if location.price is not None else None,
                 }
-                for l in locations
+            )
+
+        return {
+            "locations": location_payload,
+            "campaigns": [
+                {
+                    "id": c.campaign_id,
+                    "name": c.name,
+                    "year": int(c.year),
+                    "budget": float(c.budget) if c.budget is not None else 0.0,
+                }
+                for c in campaigns
             ],
-            "campaigns": [{"id": c.campaign_id, "name": c.name} for c in campaigns],
             "cities": [{"id": c.city_id, "name": c.name} for c in cities],
             "users": [{"id": u.user_id, "name": f"{u.first_name} {u.last_name}"} for u in users],
             "next_booking_id": self.booking_manager.get_next_booking_id(),
@@ -196,38 +245,66 @@ class WebAppManager:
         }
 
     def create_booking(self, payload: dict) -> dict:
-        required = ["date_of_event", "price", "location_id", "campaign_id", "user_id"]
+        required = ["date_of_event", "price", "location_id", "user_id"]
         missing = [key for key in required if payload.get(key) in (None, "")]
         if missing:
             raise ValueError(f"Missing fields: {', '.join(missing)}")
+        event_date = date.fromisoformat(str(payload["date_of_event"]))
+        user_id = int(payload["user_id"])
+        campaign_id = self._resolve_campaign_id(
+            payload=payload,
+            fallback_user_id=user_id,
+            fallback_event_date=event_date,
+        )
         booking = self.booking_manager.create_booking(
-            date_of_event=date.fromisoformat(str(payload["date_of_event"])),
+            date_of_event=event_date,
             price=float(payload["price"]),
             confirmed=self._to_bool(payload.get("confirmed"), default=False),
             location_id=int(payload["location_id"]),
             cancelled=self._to_bool(payload.get("cancelled"), default=False),
-            campaign_id=int(payload["campaign_id"]),
-            user_id=int(payload["user_id"]),
+            campaign_id=campaign_id,
+            user_id=user_id,
         )
         return {"id": booking.booking_id}
 
+    def create_campaign(self, payload: dict) -> dict:
+        required = ["name", "year", "budget", "user_id"]
+        missing = [key for key in required if payload.get(key) in (None, "")]
+        if missing:
+            raise ValueError(f"Missing fields: {', '.join(missing)}")
+
+        campaign = self.campaign_manager.create_campaign(
+            name=str(payload["name"]).strip(),
+            year=int(payload["year"]),
+            budget=float(payload["budget"]),
+            user_id=int(payload["user_id"]),
+        )
+        return {"id": campaign.campaign_id, "name": campaign.name}
+
     def update_booking(self, booking_id: int, payload: dict) -> dict:
-        required = ["date_of_event", "price", "location_id", "campaign_id", "user_id"]
+        required = ["date_of_event", "price", "location_id", "user_id"]
         missing = [key for key in required if payload.get(key) in (None, "")]
         if missing:
             raise ValueError(f"Missing fields: {', '.join(missing)}")
         existing = self.booking_manager.get_booking_by_id(booking_id)
         if not existing:
             raise ValueError(f"Booking {booking_id} not found")
+        event_date = date.fromisoformat(str(payload["date_of_event"]))
+        user_id = int(payload["user_id"])
+        campaign_id = self._resolve_campaign_id(
+            payload=payload,
+            fallback_user_id=user_id,
+            fallback_event_date=event_date,
+        )
         self.booking_manager.update_booking_fields(
             booking_id=booking_id,
-            date_of_event=date.fromisoformat(str(payload["date_of_event"])),
+            date_of_event=event_date,
             price=float(payload["price"]),
             confirmed=self._to_bool(payload.get("confirmed"), default=False),
             location_id=int(payload["location_id"]),
             cancelled=self._to_bool(payload.get("cancelled"), default=False),
-            campaign_id=int(payload["campaign_id"]),
-            user_id=int(payload["user_id"]),
+            campaign_id=campaign_id,
+            user_id=user_id,
         )
         return {"id": booking_id}
 
