@@ -6,6 +6,11 @@ const API_BASE = window.__API_BASE__ || "";
 const bookingSort = { key: "id", dir: "desc" };
 const standSort = { key: "id", dir: "asc" };
 
+let bookingEditId = null;
+let standEditId = null;
+let nextBookingId = null;
+let nextStandId = null;
+
 function compareValues(a, b, dir = "asc") {
     const ax = a ?? "";
     const bx = b ?? "";
@@ -35,6 +40,64 @@ function updateSortIndicators() {
     }
 }
 
+function setBookingFormMode(isEdit) {
+    const title = document.getElementById("booking-form-title");
+    const closeBtn = document.getElementById("booking-close-btn");
+    const idLabel = document.getElementById("booking-form-id-label");
+    if (title) {
+        title.textContent = isEdit ? "Buchung anpassen" : "Neue Buchung";
+        if (idLabel) {
+            title.appendChild(idLabel);
+        }
+    }
+    if (idLabel) {
+        const value = isEdit ? bookingEditId : nextBookingId;
+        idLabel.textContent = value != null ? `(#${value})` : "";
+    }
+    if (closeBtn) {
+        closeBtn.classList.toggle("hidden", !isEdit);
+    }
+}
+
+function setStandFormMode(isEdit) {
+    const title = document.getElementById("stand-form-title");
+    const closeBtn = document.getElementById("stand-close-btn");
+    const idLabel = document.getElementById("stand-form-id-label");
+    if (title) {
+        title.textContent = isEdit ? "Standplatz anpassen" : "Neuer Standplatz";
+        if (idLabel) {
+            title.appendChild(idLabel);
+        }
+    }
+    if (idLabel) {
+        const value = isEdit ? standEditId : nextStandId;
+        idLabel.textContent = value != null ? `(#${value})` : "";
+    }
+    if (closeBtn) {
+        closeBtn.classList.toggle("hidden", !isEdit);
+    }
+}
+
+function closeBookingEditMode() {
+    bookingEditId = null;
+    const form = document.getElementById("booking-create-form");
+    if (form) {
+        form.reset();
+    }
+    setBookingFormMode(false);
+    applyDefaultBookingPriceFromLocation();
+}
+
+function closeStandEditMode() {
+    standEditId = null;
+    const form = document.getElementById("stand-create-form");
+    if (form) {
+        form.reset();
+    }
+    setStandFormMode(false);
+    updateStandCityRequirement();
+}
+
 function renderDashboard(metrics) {
     const total = metrics.total || 0;
     const confirmed = metrics.confirmed || 0;
@@ -47,17 +110,65 @@ function renderDashboard(metrics) {
     document.getElementById("metric-revenue").textContent = `CHF ${Number(revenue).toFixed(2)}`;
 }
 
+function startBookingEdit(bookingId) {
+    const booking = bookings.find(item => Number(item.id) === Number(bookingId));
+    if (!booking) {
+        return;
+    }
+
+    bookingEditId = Number(booking.id);
+
+    document.getElementById("new-booking-date").value = booking.date || "";
+    document.getElementById("new-booking-location").value = booking.stand || "";
+    document.getElementById("new-booking-campaign").value = booking.campaign || "";
+    const user = (meta.users || []).find(item => Number(item.id) === Number(booking.user_id));
+    document.getElementById("new-booking-user").value = user ? user.name : "";
+    document.getElementById("new-booking-price").value = Number(booking.price || 0).toFixed(2);
+    document.getElementById("new-booking-confirmed").checked = Boolean(booking.confirmed);
+    document.getElementById("new-booking-cancelled").checked = Boolean(booking.cancelled);
+
+    setBookingFormMode(true);
+}
+
+function startStandEdit(standId) {
+    const stand = stands.find(item => Number(item.id) === Number(standId));
+    if (!stand) {
+        return;
+    }
+
+    standEditId = Number(stand.id);
+
+    document.getElementById("new-stand-name").value = stand.name || "";
+    document.getElementById("new-stand-city").value = stand.city || "";
+    document.getElementById("new-stand-kanton").value = "";
+    const standUser = (meta.users || []).find(item => Number(item.id) === Number(stand.user_id));
+    document.getElementById("new-stand-user").value = standUser ? standUser.name : "";
+    document.getElementById("new-stand-price").value = stand.price != null ? Number(stand.price).toFixed(2) : "";
+    document.getElementById("new-stand-rating").value = stand.rating ?? "";
+    document.getElementById("new-stand-dialog").value = stand.max_dialog ?? "";
+    document.getElementById("new-stand-limit-yearly").value = stand.location_limit_yearly_raw ?? "";
+    document.getElementById("new-stand-limit-monthly").value = stand.location_limit_monthly_raw ?? "";
+    document.getElementById("new-stand-limit-campaign").value = stand.location_limit_campaign_raw ?? "";
+    document.getElementById("new-stand-limit-valid-from").value = stand.location_limit_valid_from_raw || "";
+    document.getElementById("new-stand-sbb").checked = Boolean(stand.is_sbb);
+    document.getElementById("new-stand-note").value = stand.note || "";
+
+    setStandFormMode(true);
+    updateStandCityRequirement();
+}
+
 function renderBookings() {
     const search = (document.getElementById("booking-search")?.value || "").trim().toLowerCase();
     const dateFrom = document.getElementById("booking-date-from")?.value || "";
     const dateTo = document.getElementById("booking-date-to")?.value || "";
-    const status = document.getElementById("booking-status")?.value || "all";
+    const status = getBookingStatusCode();
 
     const filtered = bookings.filter(booking => {
         const bookingDate = booking.date || "";
         const bySearch =
             !search ||
             String(booking.stand || "").toLowerCase().includes(search) ||
+            String(booking.city || "").toLowerCase().includes(search) ||
             String(booking.campaign || "").toLowerCase().includes(search);
         const byFrom = !dateFrom || bookingDate >= dateFrom;
         const byTo = !dateTo || bookingDate <= dateTo;
@@ -86,16 +197,20 @@ function renderBookings() {
 
     sorted.forEach(booking => {
         const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        tr.title = "Doppelklick zum Bearbeiten";
         const statusText = booking.cancelled ? "Storniert" : (booking.confirmed ? "Bestaetigt" : "Offen");
         tr.innerHTML = `
             <td>#${booking.id}</td>
             <td>${booking.created_at || "-"}</td>
             <td>${booking.date}</td>
             <td>${booking.stand}</td>
+            <td>${booking.city || "-"}</td>
             <td>${booking.campaign}</td>
             <td>CHF ${Number(booking.price || 0).toFixed(2)}</td>
             <td>${statusText}</td>
         `;
+        tr.addEventListener("dblclick", () => startBookingEdit(booking.id));
         body.appendChild(tr);
     });
 }
@@ -120,7 +235,7 @@ function renderStands() {
     const dialogMin = parseOptionalNumber("stand-dialog-min");
     const dialogMax = parseOptionalNumber("stand-dialog-max");
 
-    const sbbFilter = document.getElementById("stand-sbb")?.value || "all";
+    const sbbFilter = getStandSbbCode();
 
     const filtered = stands.filter(stand => {
         const standName = String(stand.name || "").toLowerCase();
@@ -170,6 +285,8 @@ function renderStands() {
 
     sorted.forEach(stand => {
         const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        tr.title = "Doppelklick zum Bearbeiten";
         tr.innerHTML = `
             <td>#${stand.id ?? "-"}</td>
             <td>${stand.name || "-"}</td>
@@ -188,48 +305,106 @@ function renderStands() {
             <td>${stand.is_sbb ? "Ja" : "Nein"}</td>
             <td>${stand.note || "-"}</td>
         `;
+        tr.addEventListener("dblclick", () => startStandEdit(stand.id));
         body.appendChild(tr);
     });
 }
 
-function fillSelect(selectId, items, placeholder) {
-    const select = document.getElementById(selectId);
-    if (!select) {
+function fillDatalist(listId, items) {
+    const list = document.getElementById(listId);
+    if (!list) {
         return;
     }
 
-    select.innerHTML = "";
-    const ph = document.createElement("option");
-    ph.value = "";
-    ph.textContent = placeholder;
-    select.appendChild(ph);
+    list.innerHTML = "";
 
     items.forEach(item => {
         const option = document.createElement("option");
-        option.value = String(item.id);
-        option.textContent = item.name;
-        select.appendChild(option);
+        option.value = item.name;
+        list.appendChild(option);
     });
+}
 
-    if (items.length > 0) {
-        select.value = String(items[0].id);
+function normalizeText(value) {
+    return String(value || "").trim().toLowerCase();
+}
+
+function findItemByName(items, typedName) {
+    const target = normalizeText(typedName);
+    if (!target) {
+        return null;
+    }
+    return (items || []).find(item => normalizeText(item.name) === target) || null;
+}
+
+function getBookingStatusCode() {
+    const raw = normalizeText(document.getElementById("booking-status")?.value || "");
+    if (!raw || raw === "alle") {
+        return "all";
+    }
+    if (raw === "bestaetigt") {
+        return "confirmed";
+    }
+    if (raw === "offen") {
+        return "open";
+    }
+    if (raw === "storniert") {
+        return "cancelled";
+    }
+    return "all";
+}
+
+function getStandSbbCode() {
+    const raw = normalizeText(document.getElementById("stand-sbb")?.value || "");
+    if (!raw || raw === "sbb: alle") {
+        return "all";
+    }
+    if (raw === "sbb: ja") {
+        return "yes";
+    }
+    if (raw === "sbb: nein") {
+        return "no";
+    }
+    return "all";
+}
+
+function cityExists(cityName) {
+    const normalized = normalizeText(cityName);
+    if (!normalized) {
+        return false;
+    }
+    return (meta.cities || []).some(city => normalizeText(city.name) === normalized);
+}
+
+function updateStandCityRequirement() {
+    const cityInput = document.getElementById("new-stand-city");
+    const kantonInput = document.getElementById("new-stand-kanton");
+    if (!cityInput || !kantonInput) {
+        return;
+    }
+
+    const cityName = cityInput.value || "";
+    const needsKanton = cityName.trim() !== "" && !cityExists(cityName);
+    kantonInput.required = needsKanton;
+    const container = kantonInput.closest(".form-field");
+    if (container) {
+        container.style.display = needsKanton ? "grid" : "none";
+    } else {
+        kantonInput.style.display = needsKanton ? "" : "none";
+    }
+    if (!needsKanton) {
+        kantonInput.value = "";
     }
 }
 
 function applyDefaultBookingPriceFromLocation() {
-    const locationSelect = document.getElementById("new-booking-location");
+    const locationInput = document.getElementById("new-booking-location");
     const priceInput = document.getElementById("new-booking-price");
-    if (!locationSelect || !priceInput) {
+    if (!locationInput || !priceInput) {
         return;
     }
 
-    const selectedId = Number(locationSelect.value);
-    if (!selectedId) {
-        priceInput.value = "0.00";
-        return;
-    }
-
-    const selectedLocation = (meta.locations || []).find(location => Number(location.id) === selectedId);
+    const selectedLocation = findItemByName(meta.locations || [], locationInput.value);
     if (!selectedLocation) {
         priceInput.value = "0.00";
         return;
@@ -249,16 +424,28 @@ async function loadMeta() {
         throw new Error("Meta request failed");
     }
 
+    const currentBookingLocation = document.getElementById("new-booking-location")?.value || "";
+    const currentBookingCampaign = document.getElementById("new-booking-campaign")?.value || "";
+    const currentBookingUser = document.getElementById("new-booking-user")?.value || "";
+    const currentStandUser = document.getElementById("new-stand-user")?.value || "";
+
     meta = await response.json();
+    nextBookingId = meta.next_booking_id ?? null;
+    nextStandId = meta.next_stand_id ?? null;
 
-    fillSelect("new-booking-location", meta.locations || [], "Standplatz waehlen");
-    fillSelect("new-booking-campaign", meta.campaigns || [], "Kampagne waehlen");
-    fillSelect("new-booking-user", meta.users || [], "Benutzer waehlen");
+    fillDatalist("new-booking-location-list", meta.locations || []);
+    fillDatalist("new-booking-campaign-list", meta.campaigns || []);
+    fillDatalist("new-booking-user-list", meta.users || []);
+    fillDatalist("new-stand-user-list", meta.users || []);
 
-    fillSelect("new-stand-city", meta.cities || [], "Stadt waehlen");
-    fillSelect("new-stand-user", meta.users || [], "Benutzer waehlen");
+    document.getElementById("new-booking-location").value = currentBookingLocation;
+    document.getElementById("new-booking-campaign").value = currentBookingCampaign;
+    document.getElementById("new-booking-user").value = currentBookingUser;
+    document.getElementById("new-stand-user").value = currentStandUser;
 
-    applyDefaultBookingPriceFromLocation();
+    updateStandCityRequirement();
+    setBookingFormMode(bookingEditId != null);
+    setStandFormMode(standEditId != null);
 }
 
 function getStandMonthQuery() {
@@ -274,8 +461,7 @@ async function loadDashboardFromApi() {
     if (!response.ok) {
         throw new Error("Dashboard request failed");
     }
-    const metrics = await response.json();
-    renderDashboard(metrics);
+    renderDashboard(await response.json());
 }
 
 async function loadBookingsFromApi() {
@@ -298,11 +484,7 @@ async function loadStandsFromApi() {
 
 async function loadFromApi() {
     await loadMeta();
-    await Promise.all([
-        loadDashboardFromApi(),
-        loadBookingsFromApi(),
-        loadStandsFromApi()
-    ]);
+    await Promise.all([loadDashboardFromApi(), loadBookingsFromApi(), loadStandsFromApi()]);
 }
 
 function wireBookingFilters() {
@@ -318,15 +500,8 @@ function wireBookingFilters() {
 
 function wireStandFilters() {
     const ids = [
-        "stand-name",
-        "stand-city-kanton",
-        "stand-price-min",
-        "stand-price-max",
-        "stand-rating-min",
-        "stand-rating-max",
-        "stand-dialog-min",
-        "stand-dialog-max",
-        "stand-sbb"
+        "stand-name", "stand-city-kanton", "stand-price-min", "stand-price-max",
+        "stand-rating-min", "stand-rating-max", "stand-dialog-min", "stand-dialog-max", "stand-sbb"
     ];
 
     ids.forEach(id => {
@@ -340,9 +515,7 @@ function wireStandFilters() {
     const month = document.getElementById("stand-limit-month");
     if (month) {
         month.addEventListener("change", () => {
-            loadStandsFromApi().catch(error => {
-                console.error(error);
-            });
+            loadStandsFromApi().catch(console.error);
         });
     }
 }
@@ -397,10 +570,17 @@ function wireCreateForms() {
     const bookingForm = document.getElementById("booking-create-form");
     const bookingError = document.getElementById("booking-create-error");
     const bookingLocation = document.getElementById("new-booking-location");
+    const bookingClose = document.getElementById("booking-close-btn");
 
     if (bookingLocation) {
         bookingLocation.addEventListener("change", () => {
             applyDefaultBookingPriceFromLocation();
+        });
+    }
+
+    if (bookingClose) {
+        bookingClose.addEventListener("click", () => {
+            closeBookingEditMode();
         });
     }
 
@@ -409,19 +589,31 @@ function wireCreateForms() {
             event.preventDefault();
             bookingError.textContent = "";
 
+            const selectedLocation = findItemByName(meta.locations || [], document.getElementById("new-booking-location")?.value || "");
+            const selectedCampaign = findItemByName(meta.campaigns || [], document.getElementById("new-booking-campaign")?.value || "");
+            const selectedUser = findItemByName(meta.users || [], document.getElementById("new-booking-user")?.value || "");
+            if (!selectedLocation || !selectedCampaign || !selectedUser) {
+                bookingError.textContent = "Bitte Standplatz, Kampagne und Benutzer aus der Vorschlagsliste waehlen.";
+                return;
+            }
+
             const payload = {
                 date_of_event: document.getElementById("new-booking-date")?.value || "",
                 price: document.getElementById("new-booking-price")?.value || "",
-                location_id: document.getElementById("new-booking-location")?.value || "",
-                campaign_id: document.getElementById("new-booking-campaign")?.value || "",
-                user_id: document.getElementById("new-booking-user")?.value || "",
+                location_id: selectedLocation.id,
+                campaign_id: selectedCampaign.id,
+                user_id: selectedUser.id,
                 confirmed: Boolean(document.getElementById("new-booking-confirmed")?.checked),
                 cancelled: Boolean(document.getElementById("new-booking-cancelled")?.checked)
             };
 
+            const isEdit = bookingEditId != null;
+            const method = isEdit ? "PUT" : "POST";
+            const url = isEdit ? `${API_BASE}/api/bookings/${bookingEditId}` : `${API_BASE}/api/bookings`;
+
             try {
-                const response = await fetch(`${API_BASE}/api/bookings`, {
-                    method: "POST",
+                const response = await fetch(url, {
+                    method,
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
                 });
@@ -431,9 +623,8 @@ function wireCreateForms() {
                     throw new Error(err.error || "Buchung konnte nicht gespeichert werden");
                 }
 
-                bookingForm.reset();
                 await Promise.all([loadDashboardFromApi(), loadBookingsFromApi(), loadStandsFromApi()]);
-                applyDefaultBookingPriceFromLocation();
+                closeBookingEditMode();
             } catch (error) {
                 bookingError.textContent = String(error.message || error);
             }
@@ -442,26 +633,54 @@ function wireCreateForms() {
 
     const standForm = document.getElementById("stand-create-form");
     const standError = document.getElementById("stand-create-error");
+    const standCityInput = document.getElementById("new-stand-city");
+    const standClose = document.getElementById("stand-close-btn");
+
+    if (standCityInput) {
+        standCityInput.addEventListener("input", updateStandCityRequirement);
+        standCityInput.addEventListener("change", updateStandCityRequirement);
+    }
+
+    if (standClose) {
+        standClose.addEventListener("click", () => {
+            closeStandEditMode();
+        });
+    }
 
     if (standForm) {
         standForm.addEventListener("submit", async event => {
             event.preventDefault();
             standError.textContent = "";
 
+            const selectedUser = findItemByName(meta.users || [], document.getElementById("new-stand-user")?.value || "");
+            if (!selectedUser) {
+                standError.textContent = "Bitte Benutzer aus der Vorschlagsliste waehlen.";
+                return;
+            }
+
             const payload = {
                 name: (document.getElementById("new-stand-name")?.value || "").trim(),
-                city_id: document.getElementById("new-stand-city")?.value || "",
-                user_id: document.getElementById("new-stand-user")?.value || "",
+                city_name: (document.getElementById("new-stand-city")?.value || "").trim(),
+                kanton_name: (document.getElementById("new-stand-kanton")?.value || "").trim(),
+                user_id: selectedUser.id,
                 price: document.getElementById("new-stand-price")?.value || "",
                 rating: document.getElementById("new-stand-rating")?.value || "",
                 max_dialog: document.getElementById("new-stand-dialog")?.value || "",
+                limit_yearly: document.getElementById("new-stand-limit-yearly")?.value || "",
+                limit_monthly: document.getElementById("new-stand-limit-monthly")?.value || "",
+                limit_campaign: document.getElementById("new-stand-limit-campaign")?.value || "",
+                limit_valid_from: document.getElementById("new-stand-limit-valid-from")?.value || "",
                 is_sbb: Boolean(document.getElementById("new-stand-sbb")?.checked),
                 note: (document.getElementById("new-stand-note")?.value || "").trim()
             };
 
+            const isEdit = standEditId != null;
+            const method = isEdit ? "PUT" : "POST";
+            const url = isEdit ? `${API_BASE}/api/stands/${standEditId}` : `${API_BASE}/api/stands`;
+
             try {
-                const response = await fetch(`${API_BASE}/api/stands`, {
-                    method: "POST",
+                const response = await fetch(url, {
+                    method,
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
                 });
@@ -471,8 +690,8 @@ function wireCreateForms() {
                     throw new Error(err.error || "Standplatz konnte nicht gespeichert werden");
                 }
 
-                standForm.reset();
                 await Promise.all([loadMeta(), loadStandsFromApi()]);
+                closeStandEditMode();
             } catch (error) {
                 standError.textContent = String(error.message || error);
             }
@@ -486,13 +705,18 @@ document.addEventListener("DOMContentLoaded", () => {
         month.value = new Date().toISOString().slice(0, 7);
     }
 
+    setBookingFormMode(false);
+    setStandFormMode(false);
+
     wireTabs();
     wireBookingFilters();
     wireStandFilters();
     wireSorting();
     wireCreateForms();
 
-    loadFromApi().catch(error => {
+    loadFromApi().then(() => {
+        applyDefaultBookingPriceFromLocation();
+    }).catch(error => {
         console.error(error);
         const bookingError = document.getElementById("booking-create-error");
         if (bookingError) {
