@@ -27,6 +27,8 @@
             <button class="tab" data-tab="calendar">Kalender</button>
             <button class="tab" data-tab="bookings">Buchungen</button>
             <button class="tab" data-tab="stands">Standplaetze</button>
+            <button class="tab" data-tab="campaigns">Kampagnen verwalten</button>
+            <button class="tab" data-tab="users">Nutzer verwalten</button>
         </aside>
 
         <section class="content">
@@ -153,10 +155,11 @@
                             <label for="new-booking-date">Datum Ereignis (TT.MM.JJJJ)</label>
                             <input id="new-booking-date" type="date" required>
                         </div>
-                        <div class="form-field">
+                        <div class="form-field booking-location-field">
                             <label for="new-booking-location">Standplatz</label>
                             <input id="new-booking-location" type="text" list="new-booking-location-list" placeholder="Standplatz waehlen" autocomplete="off" required>
                             <datalist id="new-booking-location-list"></datalist>
+                            <p id="booking-live-limit-error" class="error"></p>
                         </div>
                         <div class="form-field">
                             <label for="new-booking-campaign">Kampagne</label>
@@ -206,21 +209,23 @@
 
                 <div class="panel">
                     <h3>Buchungen</h3>
-                    <table>
-                        <thead>
-                        <tr>
-                            <th class="sortable" data-table="bookings" data-key="id">ID</th>
-                            <th class="sortable" data-table="bookings" data-key="created_at">Erfasst am</th>
-                            <th class="sortable" data-table="bookings" data-key="date">Datum</th>
-                            <th class="sortable" data-table="bookings" data-key="stand">Standplatz</th>
-                            <th class="sortable" data-table="bookings" data-key="city">Stadt</th>
-                            <th class="sortable" data-table="bookings" data-key="campaign">Kampagne</th>
-                            <th class="sortable" data-table="bookings" data-key="price">Preis</th>
-                            <th class="sortable" data-table="bookings" data-key="status">Status</th>
-                        </tr>
-                        </thead>
-                        <tbody id="booking-rows"></tbody>
-                    </table>
+                    <div class="table-scroll-10">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th class="sortable" data-table="bookings" data-key="id">ID</th>
+                                <th class="sortable" data-table="bookings" data-key="created_at">Erfasst am</th>
+                                <th class="sortable" data-table="bookings" data-key="date">Datum</th>
+                                <th class="sortable" data-table="bookings" data-key="stand">Standplatz</th>
+                                <th class="sortable" data-table="bookings" data-key="city">Stadt</th>
+                                <th class="sortable" data-table="bookings" data-key="campaign">Kampagne</th>
+                                <th class="sortable" data-table="bookings" data-key="price">Preis</th>
+                                <th class="sortable" data-table="bookings" data-key="status">Status</th>
+                            </tr>
+                            </thead>
+                            <tbody id="booking-rows"></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -288,29 +293,196 @@
 
                 <div class="panel">
                     <h3>Standplaetze</h3>
-                    <table>
-                        <thead>
-                        <tr>
-                            <th class="sortable" data-table="stands" data-key="id">ID</th>
-                            <th class="sortable" data-table="stands" data-key="name">Name</th>
-                            <th class="sortable" data-table="stands" data-key="city">Stadt</th>
-                            <th class="sortable" data-table="stands" data-key="kanton">Kanton</th>
-                            <th class="sortable" data-table="stands" data-key="price">Preis</th>
-                            <th class="sortable" data-table="stands" data-key="rating">Rating</th>
-                            <th class="sortable" data-table="stands" data-key="max_dialog">Max Dialog</th>
-                            <th class="sortable" data-table="stands" data-key="limit_yearly">Limit Jahr</th>
-                            <th class="sortable" data-table="stands" data-key="remaining_yearly">Uebrig Jahr</th>
-                            <th class="sortable" data-table="stands" data-key="limit_monthly">Limit Monat</th>
-                            <th class="sortable" data-table="stands" data-key="remaining_monthly">Uebrig Monat</th>
-                            <th class="sortable" data-table="stands" data-key="limit_campaign">Limit Kampagne</th>
-                            <th class="sortable" data-table="stands" data-key="remaining_campaign">Uebrig Kampagne</th>
-                            <th class="sortable" data-table="stands" data-key="limit_valid_from">Limit gueltig ab</th>
-                            <th class="sortable" data-table="stands" data-key="is_sbb">SBB</th>
-                            <th class="sortable" data-table="stands" data-key="note">Notiz</th>
-                        </tr>
-                        </thead>
-                        <tbody id="stands-rows"></tbody>
-                    </table>
+                    <div class="table-scroll-10">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th class="sortable" data-table="stands" data-key="id">ID</th>
+                                <th class="sortable" data-table="stands" data-key="name">Name</th>
+                                <th class="sortable" data-table="stands" data-key="city">Stadt</th>
+                                <th class="sortable" data-table="stands" data-key="kanton">Kanton</th>
+                                <th class="sortable" data-table="stands" data-key="price">Preis</th>
+                                <th class="sortable" data-table="stands" data-key="rating">Rating</th>
+                                <th class="sortable" data-table="stands" data-key="max_dialog">Max Dialog</th>
+                                <th class="sortable" data-table="stands" data-key="limit_yearly">Limit Jahr</th>
+                                <th class="sortable" data-table="stands" data-key="remaining_yearly">Uebrig Jahr</th>
+                                <th class="sortable" data-table="stands" data-key="limit_monthly">Limit Monat</th>
+                                <th class="sortable" data-table="stands" data-key="remaining_monthly">Uebrig Monat</th>
+                                <th class="sortable" data-table="stands" data-key="limit_campaign">Limit Kampagne</th>
+                                <th class="sortable" data-table="stands" data-key="remaining_campaign">Uebrig Kampagne</th>
+                                <th class="sortable" data-table="stands" data-key="limit_valid_from">Limit gueltig ab</th>
+                                <th class="sortable" data-table="stands" data-key="is_sbb">SBB</th>
+                                <th class="sortable" data-table="stands" data-key="note">Notiz</th>
+                            </tr>
+                            </thead>
+                            <tbody id="stands-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-view" id="tab-campaigns">
+                <div class="panel">
+                    <h3 id="campaign-form-title">Neue Kampagne <span id="campaign-form-id-label"></span></h3>
+                    <form id="campaign-edit-form" class="filters">
+                        <div class="form-field">
+                            <label for="campaign-edit-name">Name</label>
+                            <input id="campaign-edit-name" type="text" placeholder="Kampagnenname" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="campaign-edit-year">Jahr</label>
+                            <input id="campaign-edit-year" type="number" min="2000" max="2100" placeholder="Jahr" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="campaign-edit-budget">Budget</label>
+                            <input id="campaign-edit-budget" type="number" min="0" step="0.01" placeholder="Budget" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="campaign-edit-user">Benutzer</label>
+                            <input id="campaign-edit-user" type="text" list="campaign-user-list" placeholder="Benutzer waehlen" autocomplete="off" required>
+                            <datalist id="campaign-user-list"></datalist>
+                        </div>
+                        <div class="form-field checkbox-field">
+                            <label><input id="campaign-edit-active" type="checkbox" checked> Aktiv</label>
+                        </div>
+                        <button id="campaign-save-btn" type="submit">Speichern</button>
+                        <button id="campaign-cancel-btn" type="button" class="ghost hidden">Abbrechen</button>
+                        <button id="campaign-delete-btn" type="button" class="ghost hidden">Loeschen</button>
+                    </form>
+                    <p id="campaign-edit-error" class="error"></p>
+                </div>
+
+                <div class="panel">
+                    <h3>Kampagnen</h3>
+                    <div class="dashboard-controls">
+                        <label for="campaign-search">Suchen</label>
+                        <input id="campaign-search" type="text" placeholder="Name oder Benutzer">
+                        <label for="campaign-filter-year">Jahr</label>
+                        <select id="campaign-filter-year">
+                            <option value="">Alle Jahre</option>
+                        </select>
+                        <label for="campaign-filter-user">Benutzer</label>
+                        <select id="campaign-filter-user">
+                            <option value="">Alle Benutzer</option>
+                        </select>
+                        <label for="campaign-filter-active">Aktiv</label>
+                        <select id="campaign-filter-active">
+                            <option value="active" selected>Nur aktive</option>
+                            <option value="">Alle</option>
+                            <option value="inactive">Nur inaktive</option>
+                        </select>
+                    </div>
+                    <div class="table-scroll-10">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Jahr</th>
+                                <th>Budget</th>
+                                <th>Benutzer</th>
+                                <th>Aktiv</th>
+                            </tr>
+                            </thead>
+                            <tbody id="campaign-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-view" id="tab-users">
+                <div class="panel">
+                    <h3 id="user-form-title">Neuer Nutzer <span id="user-form-id-label"></span></h3>
+                    <form id="user-edit-form" class="filters">
+                        <div class="form-field">
+                            <label for="user-edit-first-name">Vorname</label>
+                            <input id="user-edit-first-name" type="text" placeholder="Vorname" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-last-name">Nachname</label>
+                            <input id="user-edit-last-name" type="text" placeholder="Nachname" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-email">E-Mail</label>
+                            <input id="user-edit-email" type="email" placeholder="E-Mail" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-phone">Telefon (optional)</label>
+                            <input id="user-edit-phone" type="text" placeholder="Telefon (optional)">
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-address-street">Strasse (optional)</label>
+                            <input id="user-edit-address-street" type="text" placeholder="Strasse">
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-address-number">Nummer (optional)</label>
+                            <input id="user-edit-address-number" type="text" placeholder="Nummer">
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-address-zip">PLZ (optional)</label>
+                            <input id="user-edit-address-zip" type="text" placeholder="PLZ">
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-address-city">Ort (optional)</label>
+                            <input id="user-edit-address-city" type="text" placeholder="Ort">
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-address-state">Kanton (optional)</label>
+                            <input id="user-edit-address-state" type="text" placeholder="Kanton">
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-role">Rolle</label>
+                            <select id="user-edit-role" required>
+                                <option value="Admin">Admin</option>
+                                <option value="User">Benutzer</option>
+                                <option value="Viewer">Betrachter</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="user-edit-password">Passwort</label>
+                            <input id="user-edit-password" type="password" placeholder="Passwort">
+                        </div>
+                        <div class="form-field checkbox-field">
+                            <label><input id="user-edit-active" type="checkbox" checked> Aktiv</label>
+                        </div>
+                        <button id="user-save-btn" type="submit">Speichern</button>
+                        <button id="user-cancel-btn" type="button" class="ghost hidden">Abbrechen</button>
+                        <button id="user-delete-btn" type="button" class="ghost hidden">Loeschen</button>
+                    </form>
+                    <p id="user-edit-error" class="error"></p>
+                </div>
+
+                <div class="panel">
+                    <h3>Nutzer</h3>
+                    <div class="dashboard-controls">
+                        <label for="user-search">Suchen</label>
+                        <input id="user-search" type="text" placeholder="Name oder Rolle">
+                        <label for="user-filter-role">Rolle</label>
+                        <select id="user-filter-role">
+                            <option value="">Alle Rollen</option>
+                        </select>
+                        <label for="user-filter-active">Aktiv</label>
+                        <select id="user-filter-active">
+                            <option value="active" selected>Nur aktive</option>
+                            <option value="">Alle</option>
+                            <option value="inactive">Nur inaktive</option>
+                        </select>
+                    </div>
+                    <div class="table-scroll-10">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Vorname</th>
+                                <th>Nachname</th>
+                                <th>Rolle</th>
+                                <th>Aktiv</th>
+                                <th>Name</th>
+                            </tr>
+                            </thead>
+                            <tbody id="user-rows"></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
         </section>
@@ -318,6 +490,15 @@
 </section>
 
 <script src="charts.js"></script>
+<script src="CommonCodeDashboardCalender.js"></script>
+<script src="CommonCodeBookingsStandplaetze.js"></script>
+<script src="CommonCodeApp.js"></script>
+<script src="dashboard.js"></script>
+<script src="calendar.js"></script>
+<script src="bookings.js"></script>
+<script src="stands.js"></script>
+<script src="campaigns.js"></script>
+<script src="users.js"></script>
 <script src="app.js"></script>
 
 <div id="column-filter-popover" class="filter-popover hidden">

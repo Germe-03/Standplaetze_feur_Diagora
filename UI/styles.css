@@ -7,6 +7,7 @@
     --blue-100: #e8f2ff;
     --panel: rgba(255, 255, 255, 0.9);
     --text: #0f2746;
+    --table-row-height: 44px;
 }
 
 * {
@@ -102,9 +103,33 @@ button {
     background: linear-gradient(135deg, var(--blue-900), var(--blue-500));
 }
 
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .error {
     color: #b11735;
     min-height: 1rem;
+}
+
+.booking-location-field {
+    position: relative;
+}
+
+#booking-live-limit-error {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 2px);
+    min-height: 0;
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    z-index: 3;
+}
+
+#booking-live-limit-error:empty {
+    display: none;
 }
 
 .topbar {
@@ -488,6 +513,31 @@ button {
 table {
     width: 100%;
     border-collapse: collapse;
+}
+
+.table-scroll-10 {
+    max-height: calc(var(--table-row-height) * 11);
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #d8e7f8;
+    border-radius: 10px;
+}
+
+.table-scroll-10 table {
+    min-width: 100%;
+}
+
+.table-scroll-10 thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f3f8ff;
+}
+
+.table-scroll-10 th,
+.table-scroll-10 td {
+    height: var(--table-row-height);
+    white-space: nowrap;
 }
 
 th,

@@ -15,6 +15,11 @@ from BusinessLogic.WebAppManager import WebAppManager
 UI_ROOT = PROJECT_ROOT / "UI"
 DB_PATH = str(PROJECT_ROOT / "Databank" / "StandplaetzeDatabank.db")
 APP_MANAGER = WebAppManager(DB_PATH)
+STATIC_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+}
 
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -63,6 +68,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             if path == "/api/meta":
                 self._send_json(APP_MANAGER.get_meta())
                 return
+            if path == "/api/campaigns":
+                self._send_json(APP_MANAGER.get_campaigns())
+                return
+            if path == "/api/users":
+                self._send_json(APP_MANAGER.get_users())
+                return
         except Exception as error:
             self._send_json({"error": str(error)}, status=400)
             return
@@ -70,15 +81,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/" or path == "/index.html":
             self._send_file(UI_ROOT / "index.html", "text/html; charset=utf-8")
             return
-        if path == "/styles.css":
-            self._send_file(UI_ROOT / "styles.css", "text/css; charset=utf-8")
-            return
-        if path == "/app.js":
-            self._send_file(UI_ROOT / "app.js", "application/javascript; charset=utf-8")
-            return
-        if path == "/charts.js":
-            self._send_file(UI_ROOT / "charts.js", "application/javascript; charset=utf-8")
-            return
+
+        # Serve UI static files (css/js/html) without hardcoding every filename.
+        relative = path.lstrip("/")
+        if relative and ".." not in relative and "/" not in relative:
+            candidate = UI_ROOT / relative
+            content_type = STATIC_CONTENT_TYPES.get(candidate.suffix.lower())
+            if content_type and candidate.exists() and candidate.is_file():
+                self._send_file(candidate, content_type)
+                return
 
         self.send_error(404, "Not found")
 
@@ -87,11 +98,24 @@ class RequestHandler(BaseHTTPRequestHandler):
         path = parsed.path
         payload = self._read_json_body()
         try:
+            if path == "/api/bookings/validate-limits":
+                booking_id_raw = payload.get("booking_id")
+                booking_id = int(booking_id_raw) if booking_id_raw not in (None, "") else None
+                self._send_json(APP_MANAGER.validate_booking_limits_only(payload, booking_id=booking_id), status=200)
+                return
+            if path == "/api/bookings/validate":
+                booking_id_raw = payload.get("booking_id")
+                booking_id = int(booking_id_raw) if booking_id_raw not in (None, "") else None
+                self._send_json(APP_MANAGER.validate_booking(payload, booking_id=booking_id), status=200)
+                return
             if path == "/api/bookings":
                 self._send_json(APP_MANAGER.create_booking(payload), status=201)
                 return
             if path == "/api/campaigns":
                 self._send_json(APP_MANAGER.create_campaign(payload), status=201)
+                return
+            if path == "/api/users":
+                self._send_json(APP_MANAGER.create_user(payload), status=201)
                 return
             if path == "/api/stands":
                 self._send_json(APP_MANAGER.create_stand(payload), status=201)
@@ -112,6 +136,30 @@ class RequestHandler(BaseHTTPRequestHandler):
             if path.startswith("/api/stands/"):
                 location_id = int(path.split("/")[-1])
                 self._send_json(APP_MANAGER.update_stand(location_id, payload), status=200)
+                return
+            if path.startswith("/api/campaigns/"):
+                campaign_id = int(path.split("/")[-1])
+                self._send_json(APP_MANAGER.update_campaign(campaign_id, payload), status=200)
+                return
+            if path.startswith("/api/users/"):
+                user_id = int(path.split("/")[-1])
+                self._send_json(APP_MANAGER.update_user(user_id, payload), status=200)
+                return
+            self.send_error(404, "Not found")
+        except Exception as error:
+            self._send_json({"error": str(error)}, status=400)
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        try:
+            if path.startswith("/api/campaigns/"):
+                campaign_id = int(path.split("/")[-1])
+                self._send_json(APP_MANAGER.delete_campaign(campaign_id), status=200)
+                return
+            if path.startswith("/api/users/"):
+                user_id = int(path.split("/")[-1])
+                self._send_json(APP_MANAGER.delete_user(user_id), status=200)
                 return
             self.send_error(404, "Not found")
         except Exception as error:
