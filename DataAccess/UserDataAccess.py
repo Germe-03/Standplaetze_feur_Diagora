@@ -5,10 +5,35 @@ from Model.User import User
 class UserDataAccess(BaseDataAccess):
     def __init__(self, db_path: str = None):
         super().__init__(db_path)
+        self._ensure_is_active_column()
+        self._normalize_role_values()
+
+    def _ensure_is_active_column(self) -> None:
+        rows = self.fetchall("PRAGMA table_info(Users)")
+        columns = {str(row[1]).lower() for row in rows}
+        if "isactive" in columns:
+            return
+        self.execute("ALTER TABLE Users ADD COLUMN IsActive INTEGER NOT NULL DEFAULT 1")
+        self.execute("UPDATE Users SET IsActive = 1 WHERE IsActive IS NULL")
+
+    def _next_free_user_id(self) -> int:
+        rows = self.fetchall("SELECT UserID FROM Users ORDER BY UserID")
+        next_id = 1
+        for row in rows:
+            current = int(row[0])
+            if current != next_id:
+                return next_id
+            next_id += 1
+        return next_id
+
+    def _normalize_role_values(self) -> None:
+        self.execute("UPDATE Users SET Role = 'Admin' WHERE lower(trim(Role)) = 'admin'")
+        self.execute("UPDATE Users SET Role = 'User' WHERE lower(trim(Role)) = 'user'")
+        self.execute("UPDATE Users SET Role = 'Viewer' WHERE lower(trim(Role)) = 'viewer'")
 
     def get_user_by_id(self, user_id: int) -> User | None:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         where UserID = ?   
         """
@@ -19,7 +44,7 @@ class UserDataAccess(BaseDataAccess):
 
     def get_user_by_name(self, first_name: str, last_name: str) -> list[User]:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         where FirstName = ? AND LastName = ?
         """
@@ -28,7 +53,7 @@ class UserDataAccess(BaseDataAccess):
 
     def get_users_by_first_name(self, first_name: str) -> list[User]:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         where FirstName = ?
         """
@@ -37,7 +62,7 @@ class UserDataAccess(BaseDataAccess):
 
     def get_users_by_last_name(self, last_name: str) -> list[User]:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         where LastName = ?
         """
@@ -46,7 +71,7 @@ class UserDataAccess(BaseDataAccess):
 
     def get_users_by_role(self, role: str) -> list[User]:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         where Role = ?
         """
@@ -55,7 +80,7 @@ class UserDataAccess(BaseDataAccess):
 
     def get_users_by_name_pattern(self, name_pattern: str) -> list[User]:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         where FirstName LIKE ? OR LastName LIKE ?
         order by LastName, FirstName
@@ -66,7 +91,7 @@ class UserDataAccess(BaseDataAccess):
 
     def get_all_users(self) -> list[User]:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         order by LastName, FirstName
         """
@@ -75,7 +100,7 @@ class UserDataAccess(BaseDataAccess):
 
     def authenticate_user(self, first_name: str, last_name: str, password: str) -> User | None:
         sql = """
-        select UserID, LastName, FirstName, Password, Role
+        select UserID, LastName, FirstName, Password, Role, IsActive
         from Users
         where FirstName = ? AND LastName = ? AND Password = ?
         """
@@ -84,21 +109,22 @@ class UserDataAccess(BaseDataAccess):
             return User(*row)
         return None
 
-    def insert_user(self, last_name: str, first_name: str, password: str, role: str) -> User:
+    def insert_user(self, last_name: str, first_name: str, password: str, role: str, is_active: bool = True) -> User:
+        new_id = self._next_free_user_id()
         sql = """
-        INSERT INTO Users (LastName, FirstName, Password, Role)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO Users (UserID, LastName, FirstName, Password, Role, IsActive)
+        VALUES (?, ?, ?, ?, ?, ?)
         """
-        new_id, _ = self.execute(sql, (last_name, first_name, password, role))
-        return User(new_id, last_name, first_name, password, role)
+        self.execute(sql, (new_id, last_name, first_name, password, role, 1 if is_active else 0))
+        return User(new_id, last_name, first_name, password, role, is_active)
 
     def update_user(self, user: User) -> None:
         sql = """
         UPDATE Users
-        SET LastName = ?, FirstName = ?, Password = ?, Role = ?
+        SET LastName = ?, FirstName = ?, Password = ?, Role = ?, IsActive = ?
         WHERE UserID = ?
         """
-        self.execute(sql, (user.last_name, user.first_name, user.password, user.role, user.user_id))
+        self.execute(sql, (user.last_name, user.first_name, user.password, user.role, 1 if user.is_active else 0, user.user_id))
 
     def update_user_password(self, user_id: int, new_password: str) -> None:
         sql = """
