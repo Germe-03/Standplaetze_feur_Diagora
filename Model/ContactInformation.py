@@ -35,10 +35,11 @@ class ContactInformation:
 
     @phone.setter
     def phone(self, phone):
-        if not isinstance(phone, str):
-            raise TypeError("Phone must be a string")
-        if not phone:
-            raise ValueError("Phone is required")
+        if phone in (None, ""):
+            self.__phone = None
+            return
+        if not isinstance(phone, (str, int)):
+            raise TypeError("Phone must be a string or int")
         self.__phone = phone
 
     @property

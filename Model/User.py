@@ -1,14 +1,15 @@
 class User:
-    def __init__(self, user_id, last_name, first_name, password, role):
+    def __init__(self, user_id, last_name, first_name, password, role, is_active=True):
         self.__user_id = user_id
         self.__last_name = last_name
         self.__first_name = first_name
         self.__password = password
         self.__role = role
+        self.__is_active = bool(is_active)
 
     def __repr__(self):
         return (f"User(id={self.__user_id!r}, Last Name={self.__last_name!r}, First Name={self.__first_name!r}"
-                f"password={self.__password!r}), role={self.__role!r}")
+                f"password={self.__password!r}), role={self.__role!r}, is_active={self.__is_active!r}")
 
     @property
     def user_id(self):
@@ -64,3 +65,11 @@ class User:
         if not isinstance(role, str):
             raise TypeError("Role must be a string")
         self.__role = role
+
+    @property
+    def is_active(self):
+        return self.__is_active
+
+    @is_active.setter
+    def is_active(self, is_active):
+        self.__is_active = bool(is_active)

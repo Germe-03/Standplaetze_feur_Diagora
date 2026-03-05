@@ -1,16 +1,17 @@
 
 
 class Campaign:
-    def __init__(self, campaign_id, name, year, budget, user_id):
+    def __init__(self, campaign_id, name, year, budget, user_id, is_active=True):
         self.__campaign_id = campaign_id
         self.__name = name
         self.__year = year
         self.__budget = budget
         self.__user_id = user_id
+        self.__is_active = bool(is_active)
 
     def __repr__(self):
         return (f"Campaign(id={self.__campaign_id!r}, Name={self.__name!r}, Year={self.__year!r}"
-                f"budget={self.__budget!r}), User ID={self.__user_id!r}")
+                f"budget={self.__budget!r}), User ID={self.__user_id!r}, is_active={self.__is_active!r}")
 
 
     @property
@@ -64,3 +65,11 @@ class Campaign:
         if not isinstance(user_id, int):
             raise TypeError("User ID must be a Integer")
         self.__user_id = user_id
+
+    @property
+    def is_active(self):
+        return self.__is_active
+
+    @is_active.setter
+    def is_active(self, is_active):
+        self.__is_active = bool(is_active)
