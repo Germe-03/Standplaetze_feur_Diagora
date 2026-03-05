@@ -24,7 +24,8 @@ class ContactinformationManger:
         if any(ci.user_id == user_id for ci in existing_email_entries):
             raise ValueError("Diese E-Mail ist für den Benutzer bereits vorhanden")
 
-        return self.contact_information_dao.insert_contact_information(email.strip(), phone.strip(), user_id)
+        clean_phone = str(phone).strip() if phone not in (None, "") else None
+        return self.contact_information_dao.insert_contact_information(email.strip(), clean_phone, user_id)
 
     def get_contact_information_by_id(self, contact_information_id: int) -> Optional[ContactInformation]:
         """
@@ -113,10 +114,10 @@ class ContactinformationManger:
         if "@" not in email or "." not in email:
             raise ValueError("E-Mail hat kein gültiges Format")
 
-        if not phone or not phone.strip():
-            raise ValueError("Telefon ist ein Pflichtfeld")
-        if len(phone.strip()) < 6:
-            raise ValueError("Telefonnummer ist zu kurz")
+        if phone not in (None, ""):
+            phone_text = str(phone).strip()
+            if phone_text and len(phone_text) < 6:
+                raise ValueError("Telefonnummer ist zu kurz")
 
         if not user_id or user_id <= 0:
             raise ValueError("Benutzer ist ein Pflichtfeld")

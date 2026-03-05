@@ -11,7 +11,7 @@ class CampaignManager:
         self.campaign_dao = CampaignDataAccess(db_path)
         self.user_dao = UserDataAccess(db_path)
 
-    def create_campaign(self, name: str, year: int, budget: float, user_id: int) -> Campaign:
+    def create_campaign(self, name: str, year: int, budget: float, user_id: int, is_active: bool = True) -> Campaign:
         """
         Erstellt eine neue Kampagne mit Validierung der Geschäftsregeln
         """
@@ -37,7 +37,7 @@ class CampaignManager:
             raise ValueError("Diese Kampagne existiert für den Benutzer bereits")
 
         # Kampagne erstellen
-        return self.campaign_dao.insert_campaign(name.strip(), year, float(budget), user_id)
+        return self.campaign_dao.insert_campaign(name.strip(), year, float(budget), user_id, is_active=is_active)
 
     def get_campaign_by_id(self, campaign_id: int) -> Optional[Campaign]:
         """
@@ -77,6 +77,12 @@ class CampaignManager:
             raise ValueError("Ungültiges Kampagnenjahr")
 
         return self.campaign_dao.get_campaign_by_year(year)
+
+    def get_all_campaigns(self) -> List[Campaign]:
+        """
+        Holt alle Kampagnen
+        """
+        return self.campaign_dao.get_all_campaigns()
 
     def update_campaign(self, campaign: Campaign) -> None:
         """
