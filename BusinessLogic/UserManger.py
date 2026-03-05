@@ -5,20 +5,34 @@ from Model.User import User
 
 
 class UserManger:
+    ALLOWED_ROLES = {"Admin", "User", "Viewer"}
+
     def __init__(self, db_path: str = None):
         self.user_dao = UserDataAccess(db_path)
 
-    def create_user(self, last_name: str, first_name: str, password: str, role: str) -> User:
+    @staticmethod
+    def _normalize_role(role: str) -> str:
+        value = str(role or "").strip().lower()
+        if value == "admin":
+            return "Admin"
+        if value == "user":
+            return "User"
+        if value == "viewer":
+            return "Viewer"
+        return str(role or "").strip()
+
+    def create_user(self, last_name: str, first_name: str, password: str, role: str, is_active: bool = True) -> User:
         """
         Erstellt einen neuen Benutzer mit Validierung der Geschäftsregeln
         """
-        self._validate_user_data(last_name, first_name, password, role)
+        normalized_role = self._normalize_role(role)
+        self._validate_user_data(last_name, first_name, password, normalized_role)
 
         existing_users = self.user_dao.get_user_by_name(first_name.strip(), last_name.strip())
         if existing_users:
             raise ValueError("Ein Benutzer mit diesem Namen existiert bereits")
 
-        return self.user_dao.insert_user(last_name.strip(), first_name.strip(), password, role.strip())
+        return self.user_dao.insert_user(last_name.strip(), first_name.strip(), password, normalized_role, is_active=is_active)
 
     def get_user_by_id(self, user_id: int) -> Optional[User]:
         """
@@ -60,7 +74,7 @@ class UserManger:
         """
         if not role or not role.strip():
             raise ValueError("Rolle muss angegeben werden")
-        return self.user_dao.get_users_by_role(role.strip())
+        return self.user_dao.get_users_by_role(self._normalize_role(role))
 
     def search_users_by_name_pattern(self, name_pattern: str) -> List[User]:
         """
@@ -100,6 +114,8 @@ class UserManger:
         if not existing_user:
             raise ValueError("Benutzer existiert nicht")
 
+        user.role = self._normalize_role(user.role)
+        self._validate_role(user.role)
         self.user_dao.update_user(user)
 
     def update_user_password(self, user_id: int, new_password: str) -> None:
@@ -148,5 +164,10 @@ class UserManger:
             raise ValueError("Vorname ist ein Pflichtfeld")
         if not password or len(password) < 4:
             raise ValueError("Passwort muss mindestens 4 Zeichen lang sein")
+        self._validate_role(role)
+
+    def _validate_role(self, role: str) -> None:
         if not role or not role.strip():
             raise ValueError("Rolle ist ein Pflichtfeld")
+        if role not in self.ALLOWED_ROLES:
+            raise ValueError("Rolle muss Admin, User oder Viewer sein")

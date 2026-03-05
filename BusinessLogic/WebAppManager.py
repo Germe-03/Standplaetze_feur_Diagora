@@ -1,9 +1,11 @@
 from datetime import date, datetime
 
+from DataAccess.AddressDataAccess import AddressDataAccess
 from BusinessLogic.BookingManager import BookingManager
 from BusinessLogic.CampaignManager import CampaignManager
 from BusinessLogic.CitiesManager import CitiesManager
 from BusinessLogic.CityLimitManager import CityLimitManager
+from BusinessLogic.ContactInformationManager import ContactInformationManager
 from BusinessLogic.LocationsLimitManager import LocationsLimitManager
 from BusinessLogic.LocationsManager import LocationsManager
 from BusinessLogic.StateManager import StateManager
@@ -13,9 +15,11 @@ from BusinessLogic.UserManager import UserManager
 class WebAppManager:
     def __init__(self, db_path: str):
         self.booking_manager = BookingManager(db_path)
+        self.address_dao = AddressDataAccess(db_path)
         self.campaign_manager = CampaignManager(db_path)
         self.cities_manager = CitiesManager(db_path)
         self.city_limit_manager = CityLimitManager(db_path)
+        self.contact_information_manager = ContactInformationManager(db_path)
         self.location_limit_manager = LocationsLimitManager(db_path)
         self.locations_manager = LocationsManager(db_path)
         self.state_manager = StateManager(db_path)
@@ -42,6 +46,85 @@ class WebAppManager:
         if value in (None, ""):
             return None
         return int(value)
+
+    @staticmethod
+    def _normalize_email(value: str) -> str:
+        return str(value or "").strip().lower()
+
+    @staticmethod
+    def _validate_email(email: str) -> None:
+        if not email:
+            raise ValueError("E-Mail ist ein Pflichtfeld.")
+        if "@" not in email or "." not in email:
+            raise ValueError("E-Mail hat kein gueltiges Format.")
+
+    def _upsert_user_contact_information(self, user_id: int, email: str, phone: str | None) -> None:
+        normalized_email = self._normalize_email(email)
+        self._validate_email(normalized_email)
+        phone_value = str(phone).strip() if phone not in (None, "") else None
+
+        existing_for_user = self.contact_information_manager.get_contact_information_by_user(user_id)
+        if existing_for_user:
+            primary = existing_for_user[0]
+            primary.e_mail = normalized_email
+            primary.phone = phone_value
+            self.contact_information_manager.update_contact_information(primary)
+            return
+
+        self.contact_information_manager.create_contact_information(
+            email=normalized_email,
+            phone=phone_value,
+            user_id=user_id,
+        )
+
+    def _upsert_user_address(self, user_id: int, payload: dict) -> None:
+        street = str(payload.get("address_street") or "").strip()
+        number = str(payload.get("address_number") or "").strip()
+        zip_code = str(payload.get("address_zip") or "").strip()
+        city = str(payload.get("address_city") or "").strip()
+        state_name = str(payload.get("address_state") or "").strip()
+
+        state_id = None
+        if state_name:
+            state = self.state_manager.get_state_by_name(state_name)
+            if not state:
+                state = self.state_manager.create_state(state_name)
+            state_id = state.state_id
+
+        has_any = any([street, number, zip_code, city, state_name])
+        existing = self.address_dao.get_addresses_by_user_id(user_id)
+        if not has_any:
+            for addr in existing:
+                self.address_dao.delete_address(addr.address_id)
+            return
+
+        if existing:
+            primary_id = existing[0].address_id
+            self.address_dao.execute(
+                "UPDATE Address SET Street = ?, Number = ?, Zip = ?, City = ?, StateID = ?, UserID = ? WHERE AddressID = ?",
+                (
+                    street or None,
+                    number or None,
+                    zip_code or None,
+                    city or None,
+                    state_id,
+                    user_id,
+                    primary_id,
+                ),
+            )
+            return
+
+        self.address_dao.execute(
+            "INSERT INTO Address (Street, Number, Zip, City, StateID, UserID) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                street or None,
+                number or None,
+                zip_code or None,
+                city or None,
+                state_id,
+                user_id,
+            ),
+        )
 
     def _resolve_campaign_id(
         self,
@@ -134,6 +217,93 @@ class WebAppManager:
             location_limit_campaign=limit_campaign,
         )
 
+    def _validate_booking_limits(
+        self,
+        location_id: int,
+        event_date: date,
+        campaign_id: int,
+        exclude_booking_id: int | None = None,
+    ) -> None:
+        location = self.locations_manager.get_location_by_id(location_id)
+        if not location:
+            raise ValueError("Standplatz nicht gefunden.")
+
+        city = self.cities_manager.get_city_by_id(location.city_id)
+        selected_reference = date(event_date.year, event_date.month, 1)
+
+        location_limits = self.location_limit_manager.get_location_limits_by_location_id(location_id)
+        valid_location_limits = [limit for limit in location_limits if self._to_date(limit.valid_from) <= selected_reference]
+        latest_location_limit = max(valid_location_limits, key=lambda x: self._to_date(x.valid_from)) if valid_location_limits else None
+
+        city_limits = self.city_limit_manager.get_city_limits_by_city_name(city.name) if city else []
+        valid_city_limits = [limit for limit in city_limits if self._to_date(limit.valid_from) <= selected_reference]
+        latest_city_limit = max(valid_city_limits, key=lambda x: self._to_date(x.valid_from)) if valid_city_limits else None
+
+        location_limit_yearly = latest_location_limit.location_limit_yearly if latest_location_limit else None
+        location_limit_monthly = latest_location_limit.location_limit_monthly if latest_location_limit else None
+        location_limit_campaign = latest_location_limit.location_limit_campaign if latest_location_limit else None
+
+        city_limit_yearly = latest_city_limit.city_limit_yearly if latest_city_limit else None
+        city_limit_monthly = latest_city_limit.city_limit_monthly if latest_city_limit else None
+        city_limit_campaign = latest_city_limit.city_limit_campaign if latest_city_limit else None
+
+        effective_yearly = location_limit_yearly if location_limit_yearly is not None else city_limit_yearly
+        effective_monthly = location_limit_monthly if location_limit_monthly is not None else city_limit_monthly
+        effective_campaign = location_limit_campaign if location_limit_campaign is not None else city_limit_campaign
+
+        bookings = self.booking_manager.get_all_bookings()
+        scoped = []
+        for booking in bookings:
+            if bool(booking.cancelled):
+                continue
+            if exclude_booking_id is not None and int(booking.booking_id) == int(exclude_booking_id):
+                continue
+            scoped.append(booking)
+
+        location_yearly_count = sum(
+            1 for booking in scoped
+            if int(booking.location_id) == int(location_id)
+            and self._to_date(booking.date_of_event).year == event_date.year
+        )
+        location_monthly_count = sum(
+            1 for booking in scoped
+            if int(booking.location_id) == int(location_id)
+            and self._to_date(booking.date_of_event).year == event_date.year
+            and self._to_date(booking.date_of_event).month == event_date.month
+        )
+        location_campaign_count = sum(
+            1 for booking in scoped
+            if int(booking.location_id) == int(location_id)
+            and int(booking.campaign_id) == int(campaign_id)
+        )
+
+        city_yearly_count = 0
+        city_monthly_count = 0
+        city_campaign_count = 0
+        if city:
+            for booking in scoped:
+                booking_location = self.locations_manager.get_location_by_id(booking.location_id)
+                if not booking_location or int(booking_location.city_id) != int(city.city_id):
+                    continue
+                booking_date = self._to_date(booking.date_of_event)
+                if booking_date.year == event_date.year:
+                    city_yearly_count += 1
+                    if booking_date.month == event_date.month:
+                        city_monthly_count += 1
+                if int(booking.campaign_id) == int(campaign_id):
+                    city_campaign_count += 1
+
+        used_yearly = location_yearly_count if location_limit_yearly is not None else city_yearly_count
+        used_monthly = location_monthly_count if location_limit_monthly is not None else city_monthly_count
+        used_campaign = location_campaign_count if location_limit_campaign is not None else city_campaign_count
+
+        if effective_yearly is not None and used_yearly >= int(effective_yearly):
+            raise ValueError(f"Jahreslimit erreicht ({used_yearly}/{effective_yearly}).")
+        if effective_monthly is not None and used_monthly >= int(effective_monthly):
+            raise ValueError(f"Monatslimit erreicht ({used_monthly}/{effective_monthly}).")
+        if effective_campaign is not None and used_campaign >= int(effective_campaign):
+            raise ValueError(f"Kampagnenlimit erreicht ({used_campaign}/{effective_campaign}).")
+
     def _booking_to_dict(self, booking) -> dict:
         location = self.locations_manager.get_location_by_id(booking.location_id)
         campaign = self.campaign_manager.get_campaign_by_id(booking.campaign_id)
@@ -204,6 +374,69 @@ class WebAppManager:
         bookings = self.booking_manager.get_all_bookings()
         return [self._booking_to_dict(b) for b in bookings]
 
+    def get_campaigns(self) -> list[dict]:
+        campaigns = self.campaign_manager.get_all_campaigns()
+        users = {u.user_id: f"{u.first_name} {u.last_name}" for u in self.user_manager.get_all_users()}
+        return [
+            {
+                "id": c.campaign_id,
+                "name": c.name,
+                "year": int(c.year),
+                "budget": float(c.budget) if c.budget is not None else 0.0,
+                "user_id": c.user_id,
+                "user_name": users.get(c.user_id, f"User {c.user_id}"),
+                "is_active": bool(c.is_active),
+            }
+            for c in campaigns
+        ]
+
+    def get_users(self) -> list[dict]:
+        users = self.user_manager.get_all_users()
+        contacts_by_user = {}
+        for info in self.contact_information_manager.contact_information_dao.fetchall(
+            "SELECT ContactInformationID, EMail, Phone, UserID FROM ContactInformation ORDER BY ContactInformationID"
+        ):
+            contact_id, email, phone, user_id = info
+            user_key = int(user_id)
+            if user_key in contacts_by_user:
+                continue
+            contacts_by_user[user_key] = {"email": email, "phone": phone, "contact_id": contact_id}
+        addresses_by_user = {}
+        for info in self.address_dao.fetchall(
+            "SELECT a.AddressID, a.Street, a.Number, a.Zip, a.City, a.StateID, a.UserID, s.Name FROM Address a LEFT JOIN States s ON s.StateID = a.StateID ORDER BY a.AddressID"
+        ):
+            address_id, street, number, zip_code, city, state_id, user_id, state_name = info
+            user_key = int(user_id)
+            if user_key in addresses_by_user:
+                continue
+            addresses_by_user[user_key] = {
+                "address_id": address_id,
+                "street": street,
+                "number": number,
+                "zip": zip_code,
+                "city": city,
+                "state_id": state_id,
+                "state_name": state_name,
+            }
+        return [
+            {
+                "id": u.user_id,
+                "first_name": u.first_name,
+                "last_name": u.last_name,
+                "full_name": f"{u.first_name} {u.last_name}".strip(),
+                "role": u.role,
+                "is_active": bool(u.is_active),
+                "email": contacts_by_user.get(int(u.user_id), {}).get("email") or "",
+                "phone": contacts_by_user.get(int(u.user_id), {}).get("phone") or "",
+                "address_street": addresses_by_user.get(int(u.user_id), {}).get("street") or "",
+                "address_number": addresses_by_user.get(int(u.user_id), {}).get("number") or "",
+                "address_zip": addresses_by_user.get(int(u.user_id), {}).get("zip") or "",
+                "address_city": addresses_by_user.get(int(u.user_id), {}).get("city") or "",
+                "address_state": addresses_by_user.get(int(u.user_id), {}).get("state_name") or "",
+            }
+            for u in users
+        ]
+
     def get_meta(self) -> dict:
         locations = self.locations_manager.get_all_locations()
         campaigns = self.campaign_manager.get_campaigns_by_year(date.today().year) or []
@@ -235,11 +468,34 @@ class WebAppManager:
                     "name": c.name,
                     "year": int(c.year),
                     "budget": float(c.budget) if c.budget is not None else 0.0,
+                    "user_id": c.user_id,
+                    "is_active": bool(c.is_active),
                 }
                 for c in campaigns
             ],
             "cities": [{"id": c.city_id, "name": c.name} for c in cities],
-            "users": [{"id": u.user_id, "name": f"{u.first_name} {u.last_name}"} for u in users],
+            "users": [
+                {
+                    "id": u.user_id,
+                    "name": f"{u.first_name} {u.last_name}",
+                    "first_name": u.first_name,
+                    "last_name": u.last_name,
+                    "role": u.role,
+                    "is_active": bool(u.is_active),
+                    "email": next(
+                        (
+                            ci.e_mail
+                            for ci in self.contact_information_manager.get_contact_information_by_user(u.user_id)
+                        ),
+                        "",
+                    ),
+                    "address": next(
+                        (a.street for a in self.address_dao.get_addresses_by_user_id(u.user_id) if a.street),
+                        "",
+                    ),
+                }
+                for u in users
+            ],
             "next_booking_id": self.booking_manager.get_next_booking_id(),
             "next_stand_id": self.locations_manager.get_next_location_id(),
         }
@@ -256,6 +512,11 @@ class WebAppManager:
             fallback_user_id=user_id,
             fallback_event_date=event_date,
         )
+        self._validate_booking_limits(
+            location_id=int(payload["location_id"]),
+            event_date=event_date,
+            campaign_id=campaign_id,
+        )
         booking = self.booking_manager.create_booking(
             date_of_event=event_date,
             price=float(payload["price"]),
@@ -266,6 +527,72 @@ class WebAppManager:
             user_id=user_id,
         )
         return {"id": booking.booking_id}
+
+    def validate_booking(self, payload: dict, booking_id: int | None = None) -> dict:
+        required = ["date_of_event", "price", "location_id", "user_id"]
+        missing = [key for key in required if payload.get(key) in (None, "")]
+        if missing:
+            raise ValueError(f"Missing fields: {', '.join(missing)}")
+
+        event_date = date.fromisoformat(str(payload["date_of_event"]))
+        location_id = int(payload["location_id"])
+        user_id = int(payload["user_id"])
+        payload_for_resolve = dict(payload)
+        payload_for_resolve["create_campaign_if_missing"] = False
+        campaign_id = self._resolve_campaign_id(
+            payload=payload_for_resolve,
+            fallback_user_id=user_id,
+            fallback_event_date=event_date,
+        )
+
+        # Keep same core checks as create/update, but without persisting.
+        self.booking_manager._validate_booking_data(
+            date_of_event=event_date,
+            price=float(payload["price"]),
+            location_id=location_id,
+            campaign_id=campaign_id,
+            user_id=user_id,
+        )
+        location = self.locations_manager.get_location_by_id(location_id)
+        if not location:
+            raise ValueError("Standort existiert nicht")
+
+        if not self.booking_manager._is_location_available(
+            location_id=location_id,
+            event_date=event_date,
+            exclude_booking_id=booking_id,
+        ):
+            raise ValueError("Standort ist an diesem Datum nicht verfuegbar")
+
+        if not self.booking_manager._is_price_valid(float(payload["price"]), location):
+            raise ValueError("Preis liegt ausserhalb des erlaubten Bereichs")
+
+        self._validate_booking_limits(
+            location_id=location_id,
+            event_date=event_date,
+            campaign_id=campaign_id,
+            exclude_booking_id=booking_id,
+        )
+        return {"ok": True}
+
+    def validate_booking_limits_only(self, payload: dict, booking_id: int | None = None) -> dict:
+        required = ["date_of_event", "location_id"]
+        missing = [key for key in required if payload.get(key) in (None, "")]
+        if missing:
+            raise ValueError(f"Missing fields: {', '.join(missing)}")
+
+        event_date = date.fromisoformat(str(payload["date_of_event"]))
+        location_id = int(payload["location_id"])
+        campaign_id_raw = payload.get("campaign_id")
+        campaign_id = int(campaign_id_raw) if campaign_id_raw not in (None, "") else 0
+
+        self._validate_booking_limits(
+            location_id=location_id,
+            event_date=event_date,
+            campaign_id=campaign_id,
+            exclude_booking_id=booking_id,
+        )
+        return {"ok": True}
 
     def create_campaign(self, payload: dict) -> dict:
         required = ["name", "year", "budget", "user_id"]
@@ -278,8 +605,116 @@ class WebAppManager:
             year=int(payload["year"]),
             budget=float(payload["budget"]),
             user_id=int(payload["user_id"]),
+            is_active=self._to_bool(payload.get("is_active"), default=True),
         )
         return {"id": campaign.campaign_id, "name": campaign.name}
+
+    def update_campaign(self, campaign_id: int, payload: dict) -> dict:
+        required = ["name", "year", "budget", "user_id"]
+        missing = [key for key in required if payload.get(key) in (None, "")]
+        if missing:
+            raise ValueError(f"Missing fields: {', '.join(missing)}")
+
+        existing = self.campaign_manager.get_campaign_by_id(campaign_id)
+        if not existing:
+            raise ValueError(f"Campaign {campaign_id} not found")
+
+        existing.name = str(payload["name"]).strip()
+        existing.year = int(payload["year"])
+        existing.budget = float(payload["budget"])
+        existing.user_id = int(payload["user_id"])
+        if "is_active" in payload:
+            existing.is_active = self._to_bool(payload.get("is_active"), default=True)
+        self.campaign_manager.update_campaign(existing)
+        return {"id": campaign_id, "name": existing.name}
+
+    def delete_campaign(self, campaign_id: int) -> dict:
+        existing = self.campaign_manager.get_campaign_by_id(campaign_id)
+        if not existing:
+            raise ValueError(f"Campaign {campaign_id} not found")
+
+        linked_bookings = self.booking_manager.get_bookings_by_campaign(campaign_id)
+        if linked_bookings:
+            raise ValueError(
+                f"Kampagne kann nicht geloescht werden: {len(linked_bookings)} Buchung(en) sind verknuepft."
+            )
+
+        self.campaign_manager.delete_campaign(campaign_id)
+        return {"id": campaign_id, "deleted": True}
+
+    def create_user(self, payload: dict) -> dict:
+        required = ["first_name", "last_name", "password", "role", "email"]
+        missing = [key for key in required if payload.get(key) in (None, "")]
+        if missing:
+            raise ValueError(f"Missing fields: {', '.join(missing)}")
+
+        user = self.user_manager.create_user(
+            last_name=str(payload["last_name"]).strip(),
+            first_name=str(payload["first_name"]).strip(),
+            password=str(payload["password"]),
+            role=str(payload["role"]).strip(),
+            is_active=self._to_bool(payload.get("is_active"), default=True),
+        )
+        self._upsert_user_contact_information(
+            user_id=user.user_id,
+            email=str(payload.get("email") or ""),
+            phone=payload.get("phone"),
+        )
+        self._upsert_user_address(user.user_id, payload)
+        return {"id": user.user_id, "name": f"{user.first_name} {user.last_name}"}
+
+    def update_user(self, user_id: int, payload: dict) -> dict:
+        required = ["first_name", "last_name", "role"]
+        missing = [key for key in required if payload.get(key) in (None, "")]
+        if missing:
+            raise ValueError(f"Missing fields: {', '.join(missing)}")
+
+        existing = self.user_manager.get_user_by_id(user_id)
+        if not existing:
+            raise ValueError(f"User {user_id} not found")
+
+        existing.first_name = str(payload["first_name"]).strip()
+        existing.last_name = str(payload["last_name"]).strip()
+        existing.role = str(payload["role"]).strip()
+        if payload.get("password") not in (None, ""):
+            existing.password = str(payload["password"])
+        if "is_active" in payload:
+            existing.is_active = self._to_bool(payload.get("is_active"), default=True)
+        self.user_manager.update_user(existing)
+        if payload.get("email") not in (None, ""):
+            self._upsert_user_contact_information(
+                user_id=user_id,
+                email=str(payload.get("email") or ""),
+                phone=payload.get("phone"),
+            )
+        if any(key in payload for key in ["address_street", "address_number", "address_zip", "address_city", "address_state"]):
+            self._upsert_user_address(user_id, payload)
+        return {"id": user_id, "name": f"{existing.first_name} {existing.last_name}"}
+
+    def delete_user(self, user_id: int) -> dict:
+        existing = self.user_manager.get_user_by_id(user_id)
+        if not existing:
+            raise ValueError(f"User {user_id} not found")
+
+        linked_bookings = self.booking_manager.get_bookings_by_user(user_id)
+        if linked_bookings:
+            raise ValueError(
+                f"Benutzer kann nicht geloescht werden: {len(linked_bookings)} Buchung(en) sind verknuepft."
+            )
+
+        linked_stands = self.locations_manager.get_locations_by_user(user_id)
+        if linked_stands:
+            raise ValueError(
+                f"Benutzer kann nicht geloescht werden: {len(linked_stands)} Standplatz/Standplaetze sind verknuepft."
+            )
+
+        for ci in self.contact_information_manager.get_contact_information_by_user(user_id):
+            self.contact_information_manager.delete_contact_information(ci.contact_information_id)
+        for addr in self.address_dao.get_addresses_by_user_id(user_id):
+            self.address_dao.delete_address(addr.address_id)
+
+        self.user_manager.delete_user(user_id)
+        return {"id": user_id, "deleted": True}
 
     def update_booking(self, booking_id: int, payload: dict) -> dict:
         required = ["date_of_event", "price", "location_id", "user_id"]
@@ -295,6 +730,12 @@ class WebAppManager:
             payload=payload,
             fallback_user_id=user_id,
             fallback_event_date=event_date,
+        )
+        self._validate_booking_limits(
+            location_id=int(payload["location_id"]),
+            event_date=event_date,
+            campaign_id=campaign_id,
+            exclude_booking_id=booking_id,
         )
         self.booking_manager.update_booking_fields(
             booking_id=booking_id,
