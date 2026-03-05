@@ -1017,7 +1017,8 @@ function startBookingEdit(bookingId) {
 
     document.getElementById("new-booking-date").value = booking.date || "";
     document.getElementById("new-booking-location").value = booking.stand || "";
-    document.getElementById("new-booking-campaign").value = booking.campaign || "";
+    const campaign = (meta.campaigns || []).find(item => Number(item.id) === Number(booking.campaign_id));
+    document.getElementById("new-booking-campaign").value = campaign ? formatCampaignDisplay(campaign) : (booking.campaign || "");
     const user = (meta.users || []).find(item => Number(item.id) === Number(booking.user_id));
     document.getElementById("new-booking-user").value = user ? user.name : "";
     document.getElementById("new-booking-price").value = Number(booking.price || 0).toFixed(2);
@@ -1148,6 +1149,12 @@ function fillDatalist(listId, items) {
                 option.textContent = visibleText;
             }
         }
+        if (listId === "new-booking-campaign-list") {
+            const visibleText = formatCampaignDisplay(item);
+            option.value = visibleText;
+            option.label = visibleText;
+            option.textContent = visibleText;
+        }
         list.appendChild(option);
     });
 }
@@ -1162,6 +1169,49 @@ function findItemByName(items, typedName) {
         return null;
     }
     return (items || []).find(item => normalizeText(item.name) === target) || null;
+}
+
+function parseCampaignInput(typedValue) {
+    const raw = String(typedValue || "").trim();
+    if (!raw) {
+        return { name: "", year: null };
+    }
+    const match = raw.match(/^(.*)\s+\((\d{4})\)$/);
+    if (!match) {
+        return { name: raw, year: null };
+    }
+    return {
+        name: String(match[1] || "").trim(),
+        year: Number(match[2])
+    };
+}
+
+function formatCampaignDisplay(campaign) {
+    const name = String(campaign?.name || "").trim();
+    const year = Number(campaign?.year);
+    if (name && Number.isFinite(year)) {
+        return `${name} (${year})`;
+    }
+    return name;
+}
+
+function findCampaignByInputValue(typedValue) {
+    const parsed = parseCampaignInput(typedValue);
+    if (!parsed.name) {
+        return null;
+    }
+    const campaigns = meta.campaigns || [];
+    if (parsed.year != null && Number.isFinite(parsed.year)) {
+        return campaigns.find(item =>
+            normalizeText(item.name) === normalizeText(parsed.name)
+            && Number(item.year) === Number(parsed.year)
+        ) || null;
+    }
+    const byName = campaigns.filter(item => normalizeText(item.name) === normalizeText(parsed.name));
+    if (byName.length === 1) {
+        return byName[0];
+    }
+    return null;
 }
 
 function findLocationByInputValue(typedValue) {
@@ -1261,13 +1311,13 @@ function updateBookingCampaignCreateBox() {
     }
 
     const campaignName = String(campaignInput.value || "").trim();
-    const selectedCampaign = findItemByName(meta.campaigns || [], campaignName);
+    const selectedCampaign = findCampaignByInputValue(campaignName);
     const shouldShow = campaignName !== "" && !selectedCampaign;
     box.classList.toggle("hidden", !shouldShow);
     nameInput.readOnly = shouldShow;
 
     if (shouldShow) {
-        nameInput.value = campaignName;
+        nameInput.value = parseCampaignInput(campaignName).name;
         if (!yearInput.value) {
             const bookingDate = String(bookingDateInput?.value || "");
             const y = bookingDate.length >= 4 ? Number(bookingDate.slice(0, 4)) : new Date().getFullYear();
@@ -1738,17 +1788,18 @@ function wireCreateForms() {
             }
 
             const campaignInputValue = String(document.getElementById("new-booking-campaign")?.value || "").trim();
+            const parsedCampaignInput = parseCampaignInput(campaignInputValue);
             const campaignYearRaw = String(document.getElementById("new-campaign-year")?.value || "").trim();
             const campaignBudgetRaw = String(document.getElementById("new-campaign-budget")?.value || "").trim();
             const campaignUserName = String(document.getElementById("new-campaign-user")?.value || "").trim();
 
-            if (!campaignInputValue) {
+            if (!parsedCampaignInput.name) {
                 if (campaignSaveMsg) {
                     campaignSaveMsg.textContent = "Bitte Kampagne eingeben.";
                 }
                 return;
             }
-            if (findItemByName(meta.campaigns || [], campaignInputValue)) {
+            if (findCampaignByInputValue(campaignInputValue)) {
                 if (campaignSaveMsg) {
                     campaignSaveMsg.textContent = "Kampagne existiert bereits.";
                 }
@@ -1781,7 +1832,7 @@ function wireCreateForms() {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        name: campaignInputValue,
+                        name: parsedCampaignInput.name,
                         year: Number(campaignYearRaw),
                         budget: Number(campaignBudgetRaw),
                         user_id: campaignUser.id
@@ -1793,18 +1844,29 @@ function wireCreateForms() {
                 }
 
                 const result = await response.json().catch(() => ({}));
-                const savedName = String(result.name || campaignInputValue).trim();
+                const savedName = String(result.name || parsedCampaignInput.name).trim();
                 const savedId = Number(result.id);
-                if (!findItemByName(meta.campaigns || [], savedName)) {
+                const savedYear = Number(result.year ?? campaignYearRaw);
+                const savedBudget = Number(result.budget ?? campaignBudgetRaw);
+                const existingCampaign = (meta.campaigns || []).find(item =>
+                    normalizeText(item.name) === normalizeText(savedName)
+                    && Number(item.year) === Number(savedYear)
+                );
+                if (!existingCampaign) {
                     meta.campaigns.push({
                         id: Number.isFinite(savedId) ? savedId : null,
-                        name: savedName
+                        name: savedName,
+                        year: Number.isFinite(savedYear) ? savedYear : null,
+                        budget: Number.isFinite(savedBudget) ? savedBudget : 0
                     });
                 }
                 fillDatalist("new-booking-campaign-list", meta.campaigns || []);
                 const campaignInput = document.getElementById("new-booking-campaign");
                 if (campaignInput) {
-                    campaignInput.value = savedName;
+                    campaignInput.value = formatCampaignDisplay({
+                        name: savedName,
+                        year: savedYear
+                    });
                 }
                 updateBookingCampaignCreateBox();
                 if (campaignSaveMsg) {
@@ -1824,7 +1886,7 @@ function wireCreateForms() {
             bookingError.textContent = "";
 
             const selectedLocation = findLocationByInputValue(document.getElementById("new-booking-location")?.value || "");
-            const selectedCampaign = findItemByName(meta.campaigns || [], document.getElementById("new-booking-campaign")?.value || "");
+            const selectedCampaign = findCampaignByInputValue(document.getElementById("new-booking-campaign")?.value || "");
             const selectedUser = findItemByName(meta.users || [], document.getElementById("new-booking-user")?.value || "");
             const missingRefs = [];
             if (!selectedLocation) {
@@ -1839,7 +1901,8 @@ function wireCreateForms() {
             }
 
             const campaignInputValue = String(document.getElementById("new-booking-campaign")?.value || "").trim();
-            if (!campaignInputValue) {
+            const parsedCampaignInput = parseCampaignInput(campaignInputValue);
+            if (!parsedCampaignInput.name) {
                 bookingError.textContent = "Bitte Kampagne eingeben.";
                 return;
             }
@@ -1855,7 +1918,7 @@ function wireCreateForms() {
             if (selectedCampaign) {
                 payload.campaign_id = selectedCampaign.id;
             } else {
-                const campaignName = campaignInputValue;
+                const campaignName = parsedCampaignInput.name;
                 const campaignYearRaw = String(document.getElementById("new-campaign-year")?.value || "").trim();
                 const campaignBudgetRaw = String(document.getElementById("new-campaign-budget")?.value || "").trim();
                 const campaignUserName = String(document.getElementById("new-campaign-user")?.value || "").trim();
