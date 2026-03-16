@@ -61,6 +61,7 @@ function updateSortIndicators() {
 function setBookingFormMode(isEdit) {
     const title = document.getElementById("booking-form-title");
     const closeBtn = document.getElementById("booking-close-btn");
+    const deleteBtn = document.getElementById("booking-delete-btn");
     const idLabel = document.getElementById("booking-form-id-label");
     if (title) {
         title.textContent = isEdit ? "Buchung anpassen" : "Neue Buchung";
@@ -75,11 +76,15 @@ function setBookingFormMode(isEdit) {
     if (closeBtn) {
         closeBtn.classList.toggle("hidden", !isEdit);
     }
+    if (deleteBtn) {
+        deleteBtn.classList.toggle("hidden", !isEdit);
+    }
 }
 
 function setStandFormMode(isEdit) {
     const title = document.getElementById("stand-form-title");
     const closeBtn = document.getElementById("stand-close-btn");
+    const deleteBtn = document.getElementById("stand-delete-btn");
     const idLabel = document.getElementById("stand-form-id-label");
     if (title) {
         title.textContent = isEdit ? "Standplatz anpassen" : "Neuer Standplatz";
@@ -93,6 +98,9 @@ function setStandFormMode(isEdit) {
     }
     if (closeBtn) {
         closeBtn.classList.toggle("hidden", !isEdit);
+    }
+    if (deleteBtn) {
+        deleteBtn.classList.toggle("hidden", !isEdit);
     }
 }
 

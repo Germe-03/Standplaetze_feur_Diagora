@@ -206,6 +206,7 @@ function wireBookingForm() {
     const bookingDateInput = document.getElementById("new-booking-date");
     const bookingUserInput = document.getElementById("new-booking-user");
     const bookingClose = document.getElementById("booking-close-btn");
+    const bookingDelete = document.getElementById("booking-delete-btn");
     const campaignSaveBtn = document.getElementById("new-campaign-save-btn");
     const campaignSaveMsg = document.getElementById("new-campaign-save-msg");
 
@@ -237,6 +238,31 @@ function wireBookingForm() {
         bookingClose.addEventListener("click", () => {
             closeBookingEditMode();
             setBookingLiveLimitError("");
+        });
+    }
+    if (bookingDelete) {
+        bookingDelete.addEventListener("click", async () => {
+            if (bookingEditId == null) {
+                return;
+            }
+            const yes = window.confirm("Buchung wirklich loeschen?");
+            if (!yes) {
+                return;
+            }
+            bookingError.textContent = "";
+            try {
+                const response = await fetch(`${API_BASE}/api/bookings/${bookingEditId}`, { method: "DELETE" });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => null);
+                    const fallback = `HTTP ${response.status} beim Loeschen.`;
+                    throw new Error((err && err.error) ? err.error : fallback);
+                }
+                await Promise.all([loadBookingsFromApi(), loadStandsFromApi()]);
+                closeBookingEditMode();
+                setBookingLiveLimitError("");
+            } catch (error) {
+                bookingError.textContent = String(error.message || error);
+            }
         });
     }
 

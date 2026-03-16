@@ -97,6 +97,7 @@ function wireStandsForm() {
     const standError = document.getElementById("stand-create-error");
     const standCityInput = document.getElementById("new-stand-city");
     const standClose = document.getElementById("stand-close-btn");
+    const standDelete = document.getElementById("stand-delete-btn");
 
     if (standCityInput) {
         standCityInput.addEventListener("input", updateStandCityRequirement);
@@ -106,6 +107,30 @@ function wireStandsForm() {
     if (standClose) {
         standClose.addEventListener("click", () => {
             closeStandEditMode();
+        });
+    }
+    if (standDelete) {
+        standDelete.addEventListener("click", async () => {
+            if (standEditId == null) {
+                return;
+            }
+            const yes = window.confirm("Standplatz wirklich loeschen?");
+            if (!yes) {
+                return;
+            }
+            standError.textContent = "";
+            try {
+                const response = await fetch(`${API_BASE}/api/stands/${standEditId}`, { method: "DELETE" });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => null);
+                    const fallback = `HTTP ${response.status} beim Loeschen.`;
+                    throw new Error((err && err.error) ? err.error : fallback);
+                }
+                await Promise.all([loadMeta(), loadStandsFromApi(), loadBookingsFromApi()]);
+                closeStandEditMode();
+            } catch (error) {
+                standError.textContent = String(error.message || error);
+            }
         });
     }
 

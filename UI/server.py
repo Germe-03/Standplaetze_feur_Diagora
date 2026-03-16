@@ -153,6 +153,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if path.startswith("/api/bookings/"):
+                booking_id = int(path.split("/")[-1])
+                self._send_json(APP_MANAGER.delete_booking(booking_id), status=200)
+                return
+            if path.startswith("/api/stands/"):
+                location_id = int(path.split("/")[-1])
+                self._send_json(APP_MANAGER.delete_stand(location_id), status=200)
+                return
             if path.startswith("/api/campaigns/"):
                 campaign_id = int(path.split("/")[-1])
                 self._send_json(APP_MANAGER.delete_campaign(campaign_id), status=200)

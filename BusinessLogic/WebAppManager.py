@@ -749,6 +749,13 @@ class WebAppManager:
         )
         return {"id": booking_id}
 
+    def delete_booking(self, booking_id: int) -> dict:
+        existing = self.booking_manager.get_booking_by_id(booking_id)
+        if not existing:
+            raise ValueError(f"Booking {booking_id} not found")
+        self.booking_manager.delete_booking(booking_id)
+        return {"id": booking_id, "deleted": True}
+
     def create_stand(self, payload: dict) -> dict:
         required = ["name", "max_dialog", "rating", "user_id"]
         missing = [key for key in required if payload.get(key) in (None, "")]
@@ -810,6 +817,25 @@ class WebAppManager:
             valid_from=date.fromisoformat(str(payload.get("limit_valid_from"))) if payload.get("limit_valid_from") not in (None, "") else None,
         )
         return {"id": location_id}
+
+    def delete_stand(self, location_id: int) -> dict:
+        existing = self.locations_manager.get_location_by_id(location_id)
+        if not existing:
+            raise ValueError(f"Standplatz {location_id} not found")
+
+        linked_bookings = self.booking_manager.get_bookings_by_location(location_id)
+        if linked_bookings:
+            raise ValueError(
+                f"Standplatz kann nicht geloescht werden: {len(linked_bookings)} Buchung(en) sind verknuepft."
+            )
+
+        # Cleanup limits for this stand before deleting the stand itself.
+        self.location_limit_manager.location_limit_dao.execute(
+            "DELETE FROM LocationLimits WHERE LocationID = ?",
+            (location_id,),
+        )
+        self.locations_manager.delete_location(location_id)
+        return {"id": location_id, "deleted": True}
 
     def get_stands(self, month_param: str | None = None) -> list[dict]:
         today = date.today()
