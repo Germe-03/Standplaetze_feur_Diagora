@@ -18,6 +18,68 @@ Dann im Browser öffnen:
 
 `http://127.0.0.1:8091/`
 
+## API-Dokumentation (OpenAPI)
+
+- OpenAPI-Datei: [`docs/openapi.yaml`](docs/openapi.yaml)
+
+## Testpyramide
+
+Diese Codebasis nutzt eine sichtbare Testpyramide mit drei Ebenen:
+
+- **Unit**: schnelle, isolierte Tests von Modellen/Funktionen
+- **Integration**: Zusammenspiel von BusinessLogic und DataAccess
+- **E2E**: API-Endpunkte über den HTTP-Server
+
+Beispiel-Commands:
+
+```bash
+python -m unittest discover -s tests/unit -p "test_*.py" -v
+python -m unittest discover -s tests/integration -p "test_*.py" -v
+python -m unittest discover -s tests/e2e -p "test_*.py" -v
+```
+
+Alle Ebenen zusammen:
+
+```bash
+python -m unittest discover -s tests/unit -p "test_*.py" -v && \
+python -m unittest discover -s tests/integration -p "test_*.py" -v && \
+python -m unittest discover -s tests/e2e -p "test_*.py" -v
+```
+
+## CI (PR-Gates)
+
+- Workflow-Datei: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+- Der Workflow führt Unit-, Integration- und E2E-Tests aus.
+- Damit PRs **nur mit grünen Tests** mergebar sind, muss in GitHub der Status-Check `CI / test-pyramid` als Required Check in den Branch Protection Rules aktiviert sein.
+
+## Docker
+
+Dockerfile ist vorhanden: [`Dockerfile`](Dockerfile)
+
+Build:
+
+```bash
+docker build -t diagora-booking-hub .
+```
+
+Start:
+
+```bash
+docker run --rm -p 10000:10000 diagora-booking-hub
+```
+
+Dann im Browser öffnen:
+
+`http://127.0.0.1:10000/`
+
+## Render-Deploy
+
+- Anleitung: [`docs/render-deploy.md`](docs/render-deploy.md)
+
+## Architekturdiagramm
+
+- Diagramm (1 Seite): [`docs/architektur.md`](docs/architektur.md)
+
 ## Reiter im Frontend
 
 ### 1) Dashboard
