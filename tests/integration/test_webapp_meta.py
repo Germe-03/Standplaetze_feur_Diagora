@@ -1,3 +1,4 @@
+import os
 import unittest
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from BusinessLogic.WebAppManager import WebAppManager
 class TestWebAppMetaIntegration(unittest.TestCase):
     def test_get_meta_returns_core_keys(self):
         project_root = Path(__file__).resolve().parents[2]
-        db_path = str(project_root / "Databank" / "StandplaetzeDatabank.db")
+        db_path = os.getenv("TEST_DB_PATH", str(project_root / "Databank" / "StandplaetzeDatabank.db"))
         manager = WebAppManager(db_path)
 
         meta = manager.get_meta()

@@ -19,3 +19,7 @@ Abhängigkeitsrichtung gemäß Clean Architecture:
 
 - `Model ← BusinessLogic ← UI`
 - `Model ← BusinessLogic ← DataAccess ← Datenbank`
+
+Leserichtung:
+
+- `A ← B` bedeutet: **B hängt von A ab**.
