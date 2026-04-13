@@ -41,7 +41,9 @@ python -m unittest discover -s tests/e2e -p "test_*.py" -v
 Alle Ebenen zusammen:
 
 ```bash
-python -m unittest discover -s tests -p "test_*.py" -v
+python -m unittest discover -s tests/unit -p "test_*.py" -v && \
+python -m unittest discover -s tests/integration -p "test_*.py" -v && \
+python -m unittest discover -s tests/e2e -p "test_*.py" -v
 ```
 
 ## CI (PR-Gates)
