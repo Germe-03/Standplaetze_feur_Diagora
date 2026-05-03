@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: diagora-booking-hub
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: diagora-db
+          property: connectionString
+
+databases:
+  - name: diagora-db
+    plan: free

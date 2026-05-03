@@ -1,8 +1,13 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY . /app
 
-EXPOSE 10000
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["sh", "-c", "python UI/server.py --host 0.0.0.0 --port ${PORT:-10000}"]
+COPY . .
+
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8080
+
+CMD ["python", "UI/server.py"]

@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Diagora Web UI</title>
+    <title>Diagora Booking Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
 <div class="bg"></div>
@@ -15,509 +15,147 @@
     window.__API_BASE__ = "";
 </script>
 
-<section id="app-view" class="app-view">
-    <header class="topbar">
-        <h2>Diagora Booking Hub</h2>
-        <span></span>
+<main class="page">
+    <header class="hero">
+        <p class="eyebrow">Minimaler Use Case</p>
+        <h1>Standplatz-Buchung fuer Kampagnen</h1>
+        <p class="lead">
+            Nutzer legen einen Standplatz und eine Kampagne an und buchen den Standplatz fuer ein Datum.
+        </p>
+        <div class="badges">
+            <span>FastAPI</span>
+            <span>SQLAlchemy</span>
+            <span>PostgreSQL</span>
+            <span>TDD</span>
+        </div>
     </header>
 
-    <main class="layout">
-        <aside class="sidebar">
-            <button class="tab active" data-tab="dashboard">Dashboard</button>
-            <button class="tab" data-tab="calendar">Kalender</button>
-            <button class="tab" data-tab="bookings">Buchungen</button>
-            <button class="tab" data-tab="stands">Standplaetze</button>
-            <button class="tab" data-tab="campaigns">Kampagnen verwalten</button>
-            <button class="tab" data-tab="users">Nutzer verwalten</button>
-        </aside>
+    <section class="grid">
+        <article class="panel">
+            <h2>Nutzer anlegen</h2>
+            <form id="user-form">
+                <label>
+                    Name
+                    <input type="text" name="name" placeholder="Name" required>
+                </label>
+                <label>
+                    E-Mail
+                    <input type="email" name="email" placeholder="name@beispiel.ch" required>
+                </label>
+                <label>
+                    Telefon (optional)
+                    <input type="text" name="phone" placeholder="+41 79 123 45 67">
+                </label>
+                <label>
+                    Adresse (optional)
+                    <input type="text" name="address" placeholder="Bahnhofstrasse 1">
+                </label>
+                <button type="submit">Nutzer speichern</button>
+            </form>
+        </article>
 
-        <section class="content">
-            <section class="tab-view active" id="tab-dashboard">
-                <div class="dashboard-controls">
-                    <label for="dashboard-year">Jahr</label>
-                    <select id="dashboard-year"></select>
-                    <label for="dashboard-campaign-year">Kampagne</label>
-                    <select id="dashboard-campaign-year">
-                        <option value="">Alle Kampagnen</option>
+        <article class="panel">
+            <h2>Standplatz anlegen</h2>
+            <form id="location-form">
+                <label>
+                    Name
+                    <input type="text" name="name" placeholder="Marktplatz" required>
+                </label>
+                <label>
+                    Stadt
+                    <input type="text" name="city" placeholder="Basel" required>
+                </label>
+                <label>
+                    Preis
+                    <input type="number" name="price" min="0" step="0.01" placeholder="95.00" required>
+                </label>
+                <button type="submit">Standplatz speichern</button>
+            </form>
+        </article>
+
+        <article class="panel">
+            <h2>Kampagne anlegen</h2>
+            <form id="campaign-form">
+                <label>
+                    Name
+                    <input type="text" name="name" placeholder="Sommer" required>
+                </label>
+                <label>
+                    Jahr
+                    <input type="number" name="year" min="2000" max="2100" placeholder="2026" required>
+                </label>
+                <label>
+                    Budget
+                    <input type="number" name="budget" min="0" step="0.01" placeholder="1000.00" required>
+                </label>
+                <label>
+                    Owner
+                    <select name="owner_id" id="campaign-owner" required></select>
+                </label>
+                <button type="submit">Kampagne speichern</button>
+            </form>
+        </article>
+
+        <article class="panel">
+            <h2>Buchung anlegen</h2>
+            <form id="booking-form">
+                <label>
+                    Datum
+                    <input type="date" name="event_date" required>
+                </label>
+                <label>
+                    Preis
+                    <input type="number" name="price" min="0" step="0.01" required>
+                </label>
+                <label>
+                    Status
+                    <select name="status" required>
+                        <option value="open">Offen</option>
+                        <option value="confirmed">Bestaetigt</option>
+                        <option value="cancelled">Storniert</option>
                     </select>
-                </div>
-                <div class="cards">
-                    <article class="card">
-                        <p>Buchungen (ohne Storniert)</p>
-                        <strong id="metric-year-total">0</strong>
-                    </article>
-                    <article class="card">
-                        <p>Offene Buchungen</p>
-                        <strong id="metric-year-open">0</strong>
-                    </article>
-                    <article class="card">
-                        <p>Bestaetigte Buchungen</p>
-                        <strong id="metric-year-confirmed">0</strong>
-                    </article>
-                    <article class="card">
-                        <p>Kosten (ohne Storniert)</p>
-                        <strong id="metric-year-revenue">CHF 0.00</strong>
-                    </article>
-                </div>
+                </label>
+                <label>
+                    Standplatz
+                    <select name="location_id" id="booking-location" required></select>
+                </label>
+                <label>
+                    Kampagne
+                    <select name="campaign_id" id="booking-campaign" required></select>
+                </label>
+                <label>
+                    Nutzer
+                    <select name="user_id" id="booking-user" required></select>
+                </label>
+                <button type="submit">Buchung speichern</button>
+            </form>
+        </article>
+    </section>
 
-                <div class="dashboard-controls">
-                    <label for="dashboard-month">Monat</label>
-                    <select id="dashboard-month"></select>
-                    <label for="dashboard-campaign-month">Kampagne</label>
-                    <select id="dashboard-campaign-month">
-                        <option value="">Alle Kampagnen</option>
-                    </select>
-                </div>
-                <div class="cards">
-                    <article class="card">
-                        <p>Buchungen (ohne Storniert)</p>
-                        <strong id="metric-month-total">0</strong>
-                    </article>
-                    <article class="card">
-                        <p>Offene Buchungen</p>
-                        <strong id="metric-month-open">0</strong>
-                    </article>
-                    <article class="card">
-                        <p>Bestaetigte Buchungen</p>
-                        <strong id="metric-month-confirmed">0</strong>
-                    </article>
-                    <article class="card">
-                        <p>Kosten (ohne Storniert)</p>
-                        <strong id="metric-month-revenue">CHF 0.00</strong>
-                    </article>
-                </div>
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Buchungen</h2>
+            <span id="status" class="status"></span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Datum</th>
+                    <th>Status</th>
+                    <th>Preis</th>
+                    <th>Standplatz</th>
+                    <th>Kampagne</th>
+                    <th>Nutzer</th>
+                </tr>
+                </thead>
+                <tbody id="booking-rows"></tbody>
+            </table>
+        </div>
+    </section>
+</main>
 
-                <div class="panel dashboard-charts-panel">
-                    <h3>Diagramme</h3>
-                    <div class="dashboard-controls">
-                        <label for="dashboard-chart-period">Zeitraum</label>
-                        <select id="dashboard-chart-period">
-                            <option value="year">Ganzes Jahr</option>
-                        </select>
-                        <label for="dashboard-chart-campaign">Kampagne</label>
-                        <select id="dashboard-chart-campaign">
-                            <option value="">Alle Kampagnen</option>
-                        </select>
-                    </div>
-                    <div class="chart-grid">
-                        <article class="chart-card">
-                            <p>Anzahl Bestaetigte Buchungen</p>
-                            <canvas id="dashboard-chart-bookings" class="chart-canvas"></canvas>
-                        </article>
-                        <article class="chart-card">
-                            <p>Kosten Bestaetigte Buchungen</p>
-                            <canvas id="dashboard-chart-costs" class="chart-canvas"></canvas>
-                        </article>
-                        <article class="chart-card">
-                            <p>Budget-Status (Rot/Blau/Gruen)</p>
-                            <canvas id="dashboard-chart-budget" class="chart-canvas"></canvas>
-                        </article>
-                    </div>
-                </div>
-            </section>
-
-            <section class="tab-view" id="tab-calendar">
-                <div class="panel">
-                    <h3>Kalender</h3>
-                    <div class="calendar-toolbar">
-                        <div class="calendar-nav">
-                            <button id="calendar-prev-btn" type="button" class="ghost">Zurueck</button>
-                            <button id="calendar-today-btn" type="button" class="ghost">Heute</button>
-                            <button id="calendar-next-btn" type="button" class="ghost">Weiter</button>
-                        </div>
-                        <label for="calendar-view-mode">Ansicht</label>
-                        <select id="calendar-view-mode">
-                            <option value="month">Monatsansicht</option>
-                            <option value="week">Wochenansicht</option>
-                            <option value="workweek">Arbeitswochenansicht</option>
-                        </select>
-                    </div>
-                    <p id="calendar-title" class="calendar-title"></p>
-                    <div id="calendar-weekdays" class="calendar-weekdays"></div>
-                    <div id="calendar-grid" class="calendar-grid"></div>
-                    <div id="calendar-more-popup" class="calendar-more-popup hidden">
-                        <div class="calendar-more-popup-card">
-                            <div class="calendar-more-popup-head">
-                                <h4 id="calendar-more-popup-title">Weitere Standplaetze</h4>
-                                <button id="calendar-more-popup-close" type="button" class="ghost">Schliessen</button>
-                            </div>
-                            <div id="calendar-more-popup-list" class="calendar-more-popup-list"></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="tab-view" id="tab-bookings">
-                <div class="panel">
-                    <h3 id="booking-form-title">Neue Buchung <span id="booking-form-id-label"></span></h3>
-                    <form id="booking-create-form" class="filters">
-                        <div class="form-field">
-                            <label for="new-booking-date">Datum Ereignis (TT.MM.JJJJ)</label>
-                            <input id="new-booking-date" type="date" required>
-                        </div>
-                        <div class="form-field booking-location-field">
-                            <label for="new-booking-location">Standplatz</label>
-                            <input id="new-booking-location" type="text" list="new-booking-location-list" placeholder="Standplatz waehlen" autocomplete="off" required>
-                            <datalist id="new-booking-location-list"></datalist>
-                            <p id="booking-live-limit-error" class="error"></p>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-booking-campaign">Kampagne</label>
-                            <input id="new-booking-campaign" type="text" list="new-booking-campaign-list" placeholder="Kampagne waehlen" autocomplete="off" required>
-                            <datalist id="new-booking-campaign-list"></datalist>
-                        </div>
-                        <div id="booking-campaign-create-box" class="campaign-create-box hidden">
-                            <div class="form-field">
-                                <label for="new-campaign-name">Neue Kampagne Name</label>
-                                <input id="new-campaign-name" type="text" placeholder="Kampagnenname">
-                            </div>
-                            <div class="form-field">
-                                <label for="new-campaign-year">Kampagne Jahr</label>
-                                <input id="new-campaign-year" type="number" min="2000" max="2100" placeholder="Jahr">
-                            </div>
-                            <div class="form-field">
-                                <label for="new-campaign-budget">Kampagne Budget</label>
-                                <input id="new-campaign-budget" type="number" min="0" step="0.01" placeholder="Budget">
-                            </div>
-                            <div class="form-field">
-                                <label for="new-campaign-user">Kampagne Benutzer</label>
-                                <input id="new-campaign-user" type="text" list="new-booking-user-list" placeholder="Benutzer waehlen" autocomplete="off">
-                            </div>
-                            <button id="new-campaign-save-btn" type="button">Kampagne speichern</button>
-                            <p id="new-campaign-save-msg" class="error"></p>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-booking-user">Benutzer</label>
-                            <input id="new-booking-user" type="text" list="new-booking-user-list" placeholder="Benutzer waehlen" autocomplete="off" required>
-                            <datalist id="new-booking-user-list"></datalist>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-booking-price">Preis</label>
-                            <input id="new-booking-price" type="number" min="0" step="0.01" placeholder="Preis" required>
-                        </div>
-                        <div class="form-field checkbox-field">
-                            <label><input id="new-booking-confirmed" type="checkbox"> Bestaetigt</label>
-                        </div>
-                        <div class="form-field checkbox-field">
-                            <label><input id="new-booking-cancelled" type="checkbox"> Storniert</label>
-                        </div>
-                        <button id="booking-save-btn" type="submit">Buchung speichern</button>
-                        <button id="booking-close-btn" type="button" class="ghost hidden">Schliessen</button>
-                        <button id="booking-delete-btn" type="button" class="ghost hidden">Loeschen</button>
-                    </form>
-                    <p id="booking-create-error" class="error"></p>
-                </div>
-
-                <div class="panel">
-                    <h3>Buchungen</h3>
-                    <div class="table-scroll-10">
-                        <table>
-                            <thead>
-                            <tr>
-                                <th class="sortable" data-table="bookings" data-key="id">ID</th>
-                                <th class="sortable" data-table="bookings" data-key="created_at">Erfasst am</th>
-                                <th class="sortable" data-table="bookings" data-key="date">Datum</th>
-                                <th class="sortable" data-table="bookings" data-key="stand">Standplatz</th>
-                                <th class="sortable" data-table="bookings" data-key="city">Stadt</th>
-                                <th class="sortable" data-table="bookings" data-key="campaign">Kampagne</th>
-                                <th class="sortable" data-table="bookings" data-key="price">Preis</th>
-                                <th class="sortable" data-table="bookings" data-key="status">Status</th>
-                            </tr>
-                            </thead>
-                            <tbody id="booking-rows"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <section class="tab-view" id="tab-stands">
-                <div class="panel">
-                    <h3 id="stand-form-title">Neuer Standplatz <span id="stand-form-id-label"></span></h3>
-                    <form id="stand-create-form" class="filters">
-                        <div class="form-field">
-                            <label for="new-stand-name">Name</label>
-                            <input id="new-stand-name" type="text" placeholder="Name" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-city">Stadt</label>
-                            <input id="new-stand-city" type="text" placeholder="Stadt" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-kanton">Kanton (nur bei neuer Stadt)</label>
-                            <input id="new-stand-kanton" type="text" placeholder="Kanton (nur bei neuer Stadt)" style="display:none;">
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-user">Benutzer</label>
-                            <input id="new-stand-user" type="text" list="new-stand-user-list" placeholder="Benutzer waehlen" autocomplete="off" required>
-                            <datalist id="new-stand-user-list"></datalist>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-price">Preis</label>
-                            <input id="new-stand-price" type="number" min="0" step="0.01" placeholder="Preis">
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-rating">Rating</label>
-                            <input id="new-stand-rating" type="number" min="0" max="5" placeholder="Rating" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-dialog">Max Dialog</label>
-                            <input id="new-stand-dialog" type="number" min="0" placeholder="Max Dialog" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-limit-yearly">Limit Jahr (-)</label>
-                            <input id="new-stand-limit-yearly" type="number" min="0" placeholder="Limit Jahr (-)">
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-limit-monthly">Limit Monat (-)</label>
-                            <input id="new-stand-limit-monthly" type="number" min="0" placeholder="Limit Monat (-)">
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-limit-campaign">Limit Kampagne (-)</label>
-                            <input id="new-stand-limit-campaign" type="number" min="0" placeholder="Limit Kampagne (-)">
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-limit-valid-from">Gueltig ab (TT.MM.JJJJ)</label>
-                            <input id="new-stand-limit-valid-from" type="date" placeholder="Gueltig ab">
-                        </div>
-                        <div class="form-field checkbox-field">
-                            <label><input id="new-stand-sbb" type="checkbox"> SBB</label>
-                        </div>
-                        <div class="form-field">
-                            <label for="new-stand-note">Notiz</label>
-                            <input id="new-stand-note" type="text" placeholder="Notiz">
-                        </div>
-                        <button id="stand-save-btn" type="submit">Standplatz speichern</button>
-                        <button id="stand-close-btn" type="button" class="ghost hidden">Schliessen</button>
-                        <button id="stand-delete-btn" type="button" class="ghost hidden">Loeschen</button>
-                    </form>
-                    <p id="stand-create-error" class="error"></p>
-                </div>
-
-                <div class="panel">
-                    <h3>Standplaetze</h3>
-                    <div class="table-scroll-10">
-                        <table>
-                            <thead>
-                            <tr>
-                                <th class="sortable" data-table="stands" data-key="id">ID</th>
-                                <th class="sortable" data-table="stands" data-key="name">Name</th>
-                                <th class="sortable" data-table="stands" data-key="city">Stadt</th>
-                                <th class="sortable" data-table="stands" data-key="kanton">Kanton</th>
-                                <th class="sortable" data-table="stands" data-key="price">Preis</th>
-                                <th class="sortable" data-table="stands" data-key="rating">Rating</th>
-                                <th class="sortable" data-table="stands" data-key="max_dialog">Max Dialog</th>
-                                <th class="sortable" data-table="stands" data-key="limit_yearly">Limit Jahr</th>
-                                <th class="sortable" data-table="stands" data-key="remaining_yearly">Uebrig Jahr</th>
-                                <th class="sortable" data-table="stands" data-key="limit_monthly">Limit Monat</th>
-                                <th class="sortable" data-table="stands" data-key="remaining_monthly">Uebrig Monat</th>
-                                <th class="sortable" data-table="stands" data-key="limit_campaign">Limit Kampagne</th>
-                                <th class="sortable" data-table="stands" data-key="remaining_campaign">Uebrig Kampagne</th>
-                                <th class="sortable" data-table="stands" data-key="limit_valid_from">Limit gueltig ab</th>
-                                <th class="sortable" data-table="stands" data-key="is_sbb">SBB</th>
-                                <th class="sortable" data-table="stands" data-key="note">Notiz</th>
-                            </tr>
-                            </thead>
-                            <tbody id="stands-rows"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <section class="tab-view" id="tab-campaigns">
-                <div class="panel">
-                    <h3 id="campaign-form-title">Neue Kampagne <span id="campaign-form-id-label"></span></h3>
-                    <form id="campaign-edit-form" class="filters">
-                        <div class="form-field">
-                            <label for="campaign-edit-name">Name</label>
-                            <input id="campaign-edit-name" type="text" placeholder="Kampagnenname" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="campaign-edit-year">Jahr</label>
-                            <input id="campaign-edit-year" type="number" min="2000" max="2100" placeholder="Jahr" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="campaign-edit-budget">Budget</label>
-                            <input id="campaign-edit-budget" type="number" min="0" step="0.01" placeholder="Budget" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="campaign-edit-user">Benutzer</label>
-                            <input id="campaign-edit-user" type="text" list="campaign-user-list" placeholder="Benutzer waehlen" autocomplete="off" required>
-                            <datalist id="campaign-user-list"></datalist>
-                        </div>
-                        <div class="form-field checkbox-field">
-                            <label><input id="campaign-edit-active" type="checkbox" checked> Aktiv</label>
-                        </div>
-                        <button id="campaign-save-btn" type="submit">Speichern</button>
-                        <button id="campaign-cancel-btn" type="button" class="ghost hidden">Abbrechen</button>
-                        <button id="campaign-delete-btn" type="button" class="ghost hidden">Loeschen</button>
-                    </form>
-                    <p id="campaign-edit-error" class="error"></p>
-                </div>
-
-                <div class="panel">
-                    <h3>Kampagnen</h3>
-                    <div class="dashboard-controls">
-                        <label for="campaign-search">Suchen</label>
-                        <input id="campaign-search" type="text" placeholder="Name oder Benutzer">
-                        <label for="campaign-filter-year">Jahr</label>
-                        <select id="campaign-filter-year">
-                            <option value="">Alle Jahre</option>
-                        </select>
-                        <label for="campaign-filter-user">Benutzer</label>
-                        <select id="campaign-filter-user">
-                            <option value="">Alle Benutzer</option>
-                        </select>
-                        <label for="campaign-filter-active">Aktiv</label>
-                        <select id="campaign-filter-active">
-                            <option value="active" selected>Nur aktive</option>
-                            <option value="">Alle</option>
-                            <option value="inactive">Nur inaktive</option>
-                        </select>
-                    </div>
-                    <div class="table-scroll-10">
-                        <table>
-                            <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Jahr</th>
-                                <th>Budget</th>
-                                <th>Benutzer</th>
-                                <th>Aktiv</th>
-                            </tr>
-                            </thead>
-                            <tbody id="campaign-rows"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <section class="tab-view" id="tab-users">
-                <div class="panel">
-                    <h3 id="user-form-title">Neuer Nutzer <span id="user-form-id-label"></span></h3>
-                    <form id="user-edit-form" class="filters">
-                        <div class="form-field">
-                            <label for="user-edit-first-name">Vorname</label>
-                            <input id="user-edit-first-name" type="text" placeholder="Vorname" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-last-name">Nachname</label>
-                            <input id="user-edit-last-name" type="text" placeholder="Nachname" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-email">E-Mail</label>
-                            <input id="user-edit-email" type="email" placeholder="E-Mail" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-phone">Telefon (optional)</label>
-                            <input id="user-edit-phone" type="text" placeholder="Telefon (optional)">
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-address-street">Strasse (optional)</label>
-                            <input id="user-edit-address-street" type="text" placeholder="Strasse">
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-address-number">Nummer (optional)</label>
-                            <input id="user-edit-address-number" type="text" placeholder="Nummer">
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-address-zip">PLZ (optional)</label>
-                            <input id="user-edit-address-zip" type="text" placeholder="PLZ">
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-address-city">Ort (optional)</label>
-                            <input id="user-edit-address-city" type="text" placeholder="Ort">
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-address-state">Kanton (optional)</label>
-                            <input id="user-edit-address-state" type="text" placeholder="Kanton">
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-role">Rolle</label>
-                            <select id="user-edit-role" required>
-                                <option value="Admin">Admin</option>
-                                <option value="User">Benutzer</option>
-                                <option value="Viewer">Betrachter</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label for="user-edit-password">Passwort</label>
-                            <input id="user-edit-password" type="password" placeholder="Passwort">
-                        </div>
-                        <div class="form-field checkbox-field">
-                            <label><input id="user-edit-active" type="checkbox" checked> Aktiv</label>
-                        </div>
-                        <button id="user-save-btn" type="submit">Speichern</button>
-                        <button id="user-cancel-btn" type="button" class="ghost hidden">Abbrechen</button>
-                        <button id="user-delete-btn" type="button" class="ghost hidden">Loeschen</button>
-                    </form>
-                    <p id="user-edit-error" class="error"></p>
-                </div>
-
-                <div class="panel">
-                    <h3>Nutzer</h3>
-                    <div class="dashboard-controls">
-                        <label for="user-search">Suchen</label>
-                        <input id="user-search" type="text" placeholder="Name oder Rolle">
-                        <label for="user-filter-role">Rolle</label>
-                        <select id="user-filter-role">
-                            <option value="">Alle Rollen</option>
-                        </select>
-                        <label for="user-filter-active">Aktiv</label>
-                        <select id="user-filter-active">
-                            <option value="active" selected>Nur aktive</option>
-                            <option value="">Alle</option>
-                            <option value="inactive">Nur inaktive</option>
-                        </select>
-                    </div>
-                    <div class="table-scroll-10">
-                        <table>
-                            <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Vorname</th>
-                                <th>Nachname</th>
-                                <th>Rolle</th>
-                                <th>Aktiv</th>
-                                <th>Name</th>
-                            </tr>
-                            </thead>
-                            <tbody id="user-rows"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-        </section>
-    </main>
-</section>
-
-<script src="charts.js"></script>
-<script src="CommonCodeDashboardCalender.js"></script>
-<script src="CommonCodeBookingsStandplaetze.js"></script>
-<script src="CommonCodeApp.js"></script>
-<script src="dashboard.js"></script>
-<script src="calendar.js"></script>
-<script src="bookings.js"></script>
-<script src="stands.js"></script>
-<script src="campaigns.js"></script>
-<script src="users.js"></script>
-<script src="app.js"></script>
-
-<div id="column-filter-popover" class="filter-popover hidden">
-    <div class="filter-popover-title" id="column-filter-title">Spalte filtern</div>
-    <input id="column-filter-search" type="text" placeholder="Suchen...">
-    <div id="column-filter-date-range" class="filter-date-range hidden">
-        <label>
-            Von
-            <input id="column-filter-date-from" type="date">
-        </label>
-        <label>
-            Bis
-            <input id="column-filter-date-to" type="date">
-        </label>
-    </div>
-    <p id="column-filter-count" class="filter-popover-count"></p>
-    <div id="column-filter-hits" class="filter-popover-hits"></div>
-</div>
+<script src="/static/app.js"></script>
 </body>
 </html>
